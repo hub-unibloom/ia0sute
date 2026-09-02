@@ -34,7 +34,7 @@ function erroRpc(id: any, code: number, message: string): any {
 const FERRAMENTAS = [
   {
     name: 'abrir_necessidade',
-    description: 'Registra uma NECESSIDADE real do usuário na plataforma Sensacional (serviços domésticos, reparos, instalações, manutenção). Use SEMPRE que o usuário relatar um problema ou desejar contratar alguém. A escolha do prestador é sempre do usuário — não invente dados, não prometa orçamento antes da resposta da API. Retorna o id da necessidade, a URL de acompanhamento e o status. Para ATUALIZAR uma necessidade existente, reenvie com id_necessidade.',
+    description: 'Registra uma NECESSIDADE real do usuário na plataforma Sensacional (serviços domésticos, reparos, instalações, manutenção). Use SEMPRE que o usuário relatar um problema ou desejar contratar alguém. PREENCHA TODOS OS CAMPOS ÚTEIS QUE CONSEGUIR: cada campo preenchido (cidade, bairro, urgencia, prazos) melhora o matching com profissionais — mas nunca invente valores que o usuário não informou. A escolha do prestador é sempre do usuário — não prometa orçamento antes da resposta da ferramenta. Retorna o id da necessidade, a URL de acompanhamento e o status. Para ATUALIZAR uma necessidade existente, reenvie com id_necessidade. Após abrir, ofereça de forma natural buscar profissionais da região (ferramenta buscar_profissionais) e apresente o resultado como lista amigável, NUNCA como JSON.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -52,7 +52,7 @@ const FERRAMENTAS = [
   },
   {
     name: 'buscar_profissionais',
-    description: 'Busca profissionais (pessoas) cadastradas na plataforma Sensacional. Use para mostrar opções reais ao usuário antes ou depois de abrir uma necessidade. Todos os filtros são opcionais e combináveis.',
+    description: 'Busca profissionais (pessoas) cadastradas na plataforma Sensacional. Use para mostrar opções reais ao usuário antes ou depois de abrir uma necessidade. Aproveite os filtros SEMPRE que o contexto trouber a informação: se o usuário mencionou cidade, filtre por cidade; se pediu urgência, use atende_emergencia; se comentou orçamento, use faixa de preço. Apresente no máximo 3-4 opções por vez, em lista amigável (nome, o que faz, cidade, link) — NUNCA JSON cru.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -69,8 +69,52 @@ const FERRAMENTAS = [
     }
   },
   {
+    name: 'cadastrar_item',
+    description: 'Cadastra uma OFERTA na plataforma Sensacional em nome do profissional ou loja informado. Existem 4 variedades (tipo_oferta), com exemplos: habilidade = o que a pessoa sabe fazer (ex: "Instalação de ar-condicionado", "Costura em geral"); item_fisico = produto de loja com estoque (ex: "Bolo de chocolate", "Furadeira de bancada"); item_virtual = produto digital (ex: "E-book de receitas", "Plano de treino em PDF"); servico = trabalho executado sob demanda (ex: "Pintura de fachada", "Diarista 4h"). Há 5 modelos de preço (tipo_preco): fixo (um preço em preco_min), a_partir_de (preço mínimo), faixa (entre preco_min e preco_max), por_metrica (cobrado por unidade: hora, m2, km etc. — exige nome_metrica + valor_metrica) e sob_orcamento. Requer o dono: profissional_id, loja_id ou codigo_publico do profissional. PROATIVIDADE: ao cadastrar uma habilidade, ofereça cadastrar também o serviço correspondente com preço; ao cadastrar produto, pergunte estoque e categoria. PREENCHA TODOS OS CAMPOS ÚTEIS (descricao, categoria_produto, cidade, contatos) — nunca invente valores que o usuário não confirmou. Por padrão o item nasce como rascunho; use status "publicado" para deixá-lo visível, confirmando antes com o usuário.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        nome: { type: 'string', description: 'Nome curto e claro da oferta (máx 160 caracteres).' },
+        tipo_oferta: { type: 'string', enum: ['habilidade', 'item_fisico', 'item_virtual', 'servico'], description: 'Variedade da oferta.' },
+        descricao: { type: 'string', description: 'Descrição detalhada do que está sendo oferecido.' },
+        categoria_produto: { type: 'string', description: 'Categoria do produto (ex: "Ferramentas", "Alimentos"). Só para item_fisico/item_virtual.' },
+        profissional_id: { type: 'string', description: 'UUID do perfil do profissional dono. Informe profissional_id OU loja_id OU codigo_publico.' },
+        loja_id: { type: 'string', description: 'UUID da loja dona. Informe profissional_id OU loja_id OU codigo_publico.' },
+        codigo_publico: { type: 'string', description: 'Código público do profissional (vem de buscar_profissionais). Resolvido automaticamente para o perfil.' },
+        tipo_preco: { type: 'string', enum: ['fixo', 'a_partir_de', 'faixa', 'por_metrica', 'sob_orcamento'], description: 'Modelo de preço. Padrão: fixo.' },
+        preco_min: { type: 'number', description: 'Preço (ou piso da faixa). Para por_metrica, é o valor por métrica se valor_metrica não vier.' },
+        preco_max: { type: 'number', description: 'Teto da faixa (só para tipo_preco faixa).' },
+        nome_metrica: { type: 'string', enum: ['peso', 'minuto', 'hora', 'km', 'empreitada', 'm2', 'm3', 'unidade'], description: 'Unidade de cobrança (obrigatório se tipo_preco = por_metrica).' },
+        valor_metrica: { type: 'number', description: 'Valor por unidade da métrica (obrigatório se tipo_preco = por_metrica).' },
+        metrica_min: { type: 'number', description: 'Mínimo cobrável da métrica (ex: mínimo de 2 horas).' },
+        estoque: { type: 'number', description: 'Quantidade em estoque (só para item_fisico).' },
+        quantidade_replicas: { type: 'number', description: 'Quantas unidades/vagas idênticas existem. Padrão: 1.' },
+        disponivel: { type: 'boolean', description: 'Se a oferta está disponível para pedido. Padrão: true.' },
+        status: { type: 'string', enum: ['rascunho', 'publicado'], description: 'rascunho (padrão, invisível ao público) ou publicado (visível na busca).' },
+        cidade: { type: 'string', description: 'Cidade de referência da oferta (vai na descrição/localização textual).' },
+        midia_urls: { type: 'array', items: { type: 'string' }, description: 'URLs de fotos/vídeos da oferta.' },
+        contatos: { type: 'object', description: 'Objeto com contatos extras (ex: {"whatsapp": "..."}).' }
+      },
+      required: ['nome', 'tipo_oferta']
+    }
+  },
+  {
+    name: 'buscar_itens',
+    description: 'Busca ofertas (produtos, itens virtuais, serviços e habilidades) PUBLICADAS na plataforma Sensacional. Use para conferir o que já está cadastrado (ex: antes de cadastrar, evite duplicar) ou para mostrar opções de produtos ao usuário. Itens em rascunho não aparecem. Apresente os resultados de forma natural (nome, preço, disponibilidade) — no máximo 3-4 por vez, NUNCA JSON cru.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        busca: { type: 'string', description: 'Texto livre no nome ou descrição do item.' },
+        tipo_oferta: { type: 'string', enum: ['habilidade', 'item_fisico', 'item_virtual', 'servico'], description: 'Filtra pela variedade da oferta.' },
+        categoria: { type: 'string', description: 'Filtra pela categoria do produto.' },
+        preco_max: { type: 'number', description: 'Só itens com preço até este valor.' },
+        limite: { type: 'number', description: 'Quantos resultados (1 a 20). Padrão: 10.' }
+      }
+    }
+  },
+  {
     name: 'ver_necessidade',
-    description: 'Consulta o status atual de uma necessidade já aberta (pendente, em análise, concluída etc.). Use para acompanhar o andamento depois de abrir a necessidade.',
+    description: 'Consulta o status atual de uma necessidade já aberta (pendente, em análise, concluída etc.). Use para acompanhar o andamento depois de abrir a necessidade. Traduza o status para o usuário em linguagem simples e ofereça a URL de acompanhamento como link.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -100,8 +144,231 @@ function textoResultado(texto: string, erro = false): any {
   return { content: [{ type: 'text', text: texto }], isError: erro };
 }
 
-async function executarFerramenta(nome: string, args: any, nomeCopilotoSessao: string): Promise<any> {
+// ============================================================
+// Cadastro de itens (ofertas)
+// ============================================================
+
+const TIPOS_OFERTA = ['habilidade', 'item_fisico', 'item_virtual', 'servico'];
+const TIPOS_PRECO = ['fixo', 'a_partir_de', 'faixa', 'por_metrica', 'sob_orcamento'];
+const NOMES_METRICA = ['peso', 'minuto', 'hora', 'km', 'empreitada', 'm2', 'm3', 'unidade'];
+
+function gerarSlug(nome: string): string {
+  const base = nome.toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 140) || 'item';
+  const sufixo = Array.from(crypto.getRandomValues(new Uint8Array(4))).map(b => b.toString(16).padStart(2, '0')).join('');
+  return `${base}-${sufixo}`;
+}
+
+function chavePrivilegiada(astro: any): string | null {
+  return astro?.locals?.runtime?.env?.SUPABASE_SERVICE_ROLE_KEY || null;
+}
+
+function headersSupabase(chave: string): Record<string, string> {
+  return {
+    'apikey': chave,
+    'Authorization': `Bearer ${chave}`,
+    'Content-Type': 'application/json'
+  };
+}
+
+function validarRegrasDePreco(args: any): string | null {
+  const tipoPreco = args.tipo_preco ? String(args.tipo_preco) : 'fixo';
+
+  if (!TIPOS_PRECO.includes(tipoPreco)) {
+    return `tipo_preco inválido: "${tipoPreco}". Use um de: ${TIPOS_PRECO.join(', ')}.`;
+  }
+  if (tipoPreco === 'por_metrica') {
+    if (!args.nome_metrica || !NOMES_METRICA.includes(String(args.nome_metrica))) {
+      return `Para tipo_preco "por_metrica" é obrigatório informar nome_metrica (um de: ${NOMES_METRICA.join(', ')}).`;
+    }
+    if (args.valor_metrica == null && args.preco_min == null) {
+      return 'Para tipo_preco "por_metrica" é obrigatório informar valor_metrica (quanto custa cada unidade da métrica).';
+    }
+  }
+  if (tipoPreco === 'faixa') {
+    if (args.preco_min == null || args.preco_max == null) {
+      return 'Para tipo_preco "faixa" é obrigatório informar preco_min E preco_max.';
+    }
+    if (Number(args.preco_max) < Number(args.preco_min)) {
+      return 'preco_max não pode ser menor que preco_min.';
+    }
+  }
+  return null;
+}
+
+async function resolverDono(args: any): Promise<{ profissionalId?: string, lojaId?: string, erro?: string }> {
+  if (args.profissional_id) return { profissionalId: String(args.profissional_id) };
+  if (args.loja_id) return { lojaId: String(args.loja_id) };
+
+  if (args.codigo_publico) {
+    const resp = await fetch(
+      `${SUPABASE_URL}/rest/v1/profissional_publico?codigo_publico=eq.${encodeURIComponent(String(args.codigo_publico))}&select=id&limit=1`,
+      { headers: headersSupabase(SUPABASE_ANON_KEY) }
+    );
+    if (resp.ok) {
+      const rows = await resp.json();
+      if (rows?.length > 0) return { profissionalId: rows[0].id };
+      return { erro: `Nenhum profissional encontrado com codigo_publico "${args.codigo_publico}". Use buscar_profissionais para achar o código certo.` };
+    }
+    return { erro: `Falha ao resolver codigo_publico (HTTP ${resp.status}). Prefira informar profissional_id diretamente.` };
+  }
+
+  return { erro: 'É obrigatório informar o dono da oferta: profissional_id, loja_id ou codigo_publico.' };
+}
+
+async function inserirItem(row: any, serviceKey: string | null): Promise<{ ok: boolean, item?: any, erro?: string, dica?: string }> {
+  const chave = serviceKey || SUPABASE_ANON_KEY;
+
+  for (let tentativa = 0; tentativa < 3; tentativa++) {
+    row.slug = gerarSlug(row.nome);
+    const resp = await fetch(`${SUPABASE_URL}/rest/v1/item`, {
+      method: 'POST',
+      headers: { ...headersSupabase(chave), 'Prefer': 'return=representation' },
+      body: JSON.stringify(row)
+    });
+    if (resp.ok) {
+      const criados = await resp.json();
+      return { ok: true, item: criados?.[0] };
+    }
+    const corpo = await resp.json().catch(() => ({}));
+    if (corpo?.code === '23505') continue; // slug duplicado: tenta outro sufixo
+    if (resp.status === 401 || resp.status === 403 || corpo?.code === '42501') {
+      return {
+        ok: false,
+        erro: 'O cadastro de itens exige a credencial de serviço do servidor (SUPABASE_SERVICE_ROLE_KEY), que não está configurada neste ambiente. A oferta NÃO foi salva.',
+        dica: 'Configure a variável de ambiente no Cloudflare Pages (Settings → Environment variables) e publique novamente.'
+      };
+    }
+    if (corpo?.code === '23503') {
+      return { ok: false, erro: 'O dono informado (profissional_id ou loja_id) não existe no banco. Confira o UUID ou use codigo_publico de um resultado de buscar_profissionais.' };
+    }
+    return { ok: false, erro: `Falha ao salvar o item (HTTP ${resp.status}): ${JSON.stringify(corpo)}` };
+  }
+  return { ok: false, erro: 'Não foi possível gerar um slug único para o item após várias tentativas.' };
+}
+
+async function cadastrarItem(args: any, serviceKey: string | null): Promise<any> {
+  const nome = String(args.nome || '').trim();
+  if (!nome) return textoResultado('Erro: nome do item é obrigatório.', true);
+
+  const tipoOferta = String(args.tipo_oferta || '');
+  if (!TIPOS_OFERTA.includes(tipoOferta)) {
+    return textoResultado(`Erro: tipo_oferta inválido ("${tipoOferta}"). Use um de: ${TIPOS_OFERTA.join(', ')}.`, true);
+  }
+
+  const erroPreco = validarRegrasDePreco(args);
+  if (erroPreco) return textoResultado(`Erro: ${erroPreco}`, true);
+
+  const dono = await resolverDono(args);
+  if (dono.erro) return textoResultado(`Erro: ${dono.erro}`, true);
+  if (dono.lojaId && (tipoOferta === 'habilidade' || tipoOferta === 'servico')) {
+    return textoResultado('Erro: ofertas do tipo "habilidade" ou "servico" pertencem a um PROFissional (informe profissional_id ou codigo_publico). Lojas só oferecem item_fisico e item_virtual.', true);
+  }
+
+  const tipoPreco = args.tipo_preco ? String(args.tipo_preco) : 'fixo';
+  const row: Record<string, any> = {
+    nome: nome.slice(0, 160),
+    tipo_oferta: tipoOferta,
+    tipo_preco: tipoPreco,
+    status: args.status === 'publicado' ? 'publicado' : 'rascunho',
+    disponivel: args.disponivel === false ? false : true,
+    replicas: Math.max(Number(args.quantidade_replicas) || 1, 1),
+    midia: Array.isArray(args.midia_urls) ? args.midia_urls.map(String) : []
+  };
+  if (dono.profissionalId) row.profissional_id = dono.profissionalId;
+  if (dono.lojaId) row.loja_id = dono.lojaId;
+  if (args.descricao) row.descricao = String(args.descricao);
+  if (args.categoria_produto) row.categoria_produto = String(args.categoria_produto).slice(0, 100);
+  if (args.cidade) row.descricao = `${row.descricao ? row.descricao + '\n' : ''}Local: ${args.cidade}`;
+  if (args.preco_min != null) row.preco_min = args.preco_min;
+  if (args.preco_max != null) row.preco_max = args.preco_max;
+  if (tipoPreco === 'por_metrica') {
+    row.nome_metrica = String(args.nome_metrica);
+    row.valor_metrica = args.valor_metrica != null ? args.valor_metrica : args.preco_min;
+  }
+  if (args.metrica_min != null) row.metrica_min = args.metrica_min;
+  if (args.estoque != null) row.estoque = args.estoque;
+  if (args.contatos && typeof args.contatos === 'object') row.contatos = args.contatos;
+
+  const resultado = await inserirItem(row, serviceKey);
+  if (!resultado.ok) {
+    return textoResultado(JSON.stringify({ sucesso: false, ...resultado }, null, 2), true);
+  }
+
+  const item = resultado.item;
+  return textoResultado(JSON.stringify({
+    sucesso: true,
+    id_item: item?.id,
+    nome: item?.nome,
+    tipo_oferta: item?.tipo_oferta,
+    tipo_preco: item?.tipo_preco,
+    status: item?.status,
+    disponivel: item?.disponivel,
+    orientacao: item?.status === 'publicado'
+      ? 'Confirme ao usuário, em frase natural (sem JSON), que a oferta está publicada e visível na busca. Se faz sentido, seja proativo: ofereça cadastrar outra oferta complementar (ex: a habilidade que dá origem ao serviço, ou o serviço com preço para a habilidade recém-cadastrada).'
+      : 'Avise ao usuário, em frase natural (sem JSON), que a oferta ficou salva como RASCUNHO (invisível ao público). Confirme os dados com ele e, estando tudo certo, publique reenviando o cadastro com status "publicado".'
+  }, null, 2));
+}
+
+async function buscarItens(args: any): Promise<any> {
+  const filtros: string[] = ['status=eq.publicado', 'disponivel=eq.true'];
+  const busca = args.busca ? String(args.busca).trim() : '';
+  if (busca) {
+    const termo = busca.replace(/[(),*]/g, ' ').trim();
+    filtros.push(`or=(nome.ilike.*${encodeURIComponent(termo)}*,descricao.ilike.*${encodeURIComponent(termo)}*,categoria_produto.ilike.*${encodeURIComponent(termo)}*)`);
+  }
+  if (args.tipo_oferta && TIPOS_OFERTA.includes(String(args.tipo_oferta))) {
+    filtros.push(`tipo_oferta=eq.${args.tipo_oferta}`);
+  }
+  if (args.categoria) filtros.push(`categoria_produto=ilike.*${encodeURIComponent(String(args.categoria))}*`);
+  if (args.preco_max != null) filtros.push(`preco_min=lte.${Number(args.preco_max)}`);
+
+  const limite = Math.min(Math.max(Number(args.limite) || 10, 1), 20);
+  const resp = await fetch(`${SUPABASE_URL}/rest/v1/item?${filtros.join('&')}&select=*&limit=${limite}`, {
+    headers: headersSupabase(SUPABASE_ANON_KEY)
+  });
+
+  if (!resp.ok) {
+    const corpo = await resp.text();
+    return textoResultado(`A busca de itens falhou agora (HTTP ${resp.status}: ${corpo.slice(0, 200)}). Informe o usuário da falha temporária.`, true);
+  }
+  const rows = await resp.json();
+  const itens = (rows || []).map((i: any) => ({
+    id: i.id,
+    nome: i.nome,
+    tipo_oferta: i.tipo_oferta,
+    descricao: i.descricao,
+    categoria_produto: i.categoria_produto,
+    tipo_preco: i.tipo_preco,
+    preco_min: i.preco_min,
+    preco_max: i.preco_max,
+    nome_metrica: i.nome_metrica,
+    valor_metrica: i.valor_metrica,
+    estoque: i.estoque,
+    disponivel: i.disponivel
+  }));
+  return textoResultado(JSON.stringify({
+    sucesso: true,
+    total: itens.length,
+    orientacao: 'Apresente no máximo 3-4 itens de forma natural (nome, preço, disponibilidade) — NUNCA JSON cru. Use apenas dados reais retornados; itens em rascunho não aparecem aqui.',
+    itens
+  }, null, 2));
+}
+
+async function executarFerramenta(nome: string, args: any, nomeCopilotoSessao: string, serviceKey: string | null): Promise<any> {
   args = args || {};
+
+  if (nome === 'cadastrar_item') {
+    return await cadastrarItem(args, serviceKey);
+  }
+
+  if (nome === 'buscar_itens') {
+    return await buscarItens(args);
+  }
 
   if (nome === 'abrir_necessidade') {
     const descricao = String(args.descricao_necessidade || '').trim();
@@ -132,7 +399,7 @@ async function executarFerramenta(nome: string, args: any, nomeCopilotoSessao: s
       id_necessidade: resultado.id,
       status: resultado.status,
       url_acompanhamento: `https://ai.sensacional.site/nescessidade/${resultado.id}`,
-      orientacao: 'Informe ao usuário que a necessidade foi ' + acao + '. Aguarde soluções dos profissionais. NÃO prometa orçamento nem prazo: a escolha é sempre do usuário. Consulte o andamento com ver_necessidade.'
+      orientacao: 'Confirme ao usuário, em frase natural (sem JSON), que a necessidade foi ' + acao + ' e ofereça o link de acompanhamento. Em seguida, seja proativo: ofereça buscar profissionais da região com buscar_profissionais. NÃO prometa orçamento nem prazo — a escolha é sempre do usuário. Para consultar o andamento depois, use ver_necessidade.'
     }, null, 2));
   }
 
@@ -170,7 +437,7 @@ async function executarFerramenta(nome: string, args: any, nomeCopilotoSessao: s
     return textoResultado(JSON.stringify({
       sucesso: true,
       total: pessoas.length,
-      orientacao: 'Apresente as opções reais encontradas. NÃO invente dados que não estejam aqui. A escolha do prestador é sempre do usuário. Se nenhuma opção servir, ofereça abrir uma necessidade com abrir_necessidade.',
+      orientacao: 'Apresente no máximo 3-4 opções em lista amigável (nome, o que faz, cidade, link do perfil) — NUNCA JSON cru. Use apenas dados reais retornados. Se não houver resultados, ofereça abrir a necessidade com abrir_necessidade para o sistema buscar profissionais. A escolha do prestador é sempre do usuário.',
       pessoas
     }, null, 2));
   }
@@ -217,7 +484,7 @@ async function executarFerramenta(nome: string, args: any, nomeCopilotoSessao: s
 
 type Processamento = { resposta?: any, headers?: Record<string, string>, notificacao?: boolean, registrarCopiloto?: string };
 
-async function processarMensagem(mensagem: any, req: Request): Promise<Processamento> {
+async function processarMensagem(mensagem: any, req: Request, serviceKey: string | null): Promise<Processamento> {
   const { id, method, params } = mensagem || {};
 
   if (method === 'initialize') {
@@ -227,8 +494,15 @@ async function processarMensagem(mensagem: any, req: Request): Promise<Processam
       resposta: respostaRpc(id, {
         protocolVersion: versao,
         capabilities: { tools: {} },
-        serverInfo: { name: 'sensacional', title: 'Sensacional — Conexão I.A. a serviços reais', version: '1.0.0' },
-        instructions: 'Você conecta usuários reais a serviços de profissionais. Use abrir_necessidade quando o usuário relatar um problema ou quiser contratar alguém; use buscar_profissionais para mostrar opções reais; use ver_necessidade para acompanhar. Vá um passo de cada vez. Não invente dados. A escolha é sempre do usuário.'
+        serverInfo: { name: 'sensacional', title: 'Sensacional — Conexão I.A. a serviços reais', version: '1.1.0' },
+        instructions: [
+          'PAPEL: Você é o mordomo digital da plataforma Sensacional — sempre presente, acessível e pronto para ajudar do início ao fim. Tom leve, simples e cortês.',
+          'FLUXO: Use abrir_necessidade quando o usuário relatar um problema ou quiser contratar; buscar_profissionais para mostrar opções reais; ver_necessidade para acompanhar; cadastrar_item para registrar ofertas (habilidade, produto físico, produto digital ou serviço) de um profissional ou loja; buscar_itens para conferir o que já existe.',
+          'PROATIVIDADE: Nunca peça ao usuário para nomear ou descrever algo do zero. Conduza um diálogo fluido: sugira opções de resposta a partir do que ele JÁ disse no chat (ex: se reclamou de um cano, pergunte "é vazamento pequeno ou rompimento?" e ofereça 2-3 alternativas). Ao cadastrar uma habilidade, ofereça também cadastrar o serviço correspondente com preço; ao abrir uma necessidade, ofereça já buscar profissionais. Uma pergunta por vez.',
+          'CAMPOS ÚTEIS: Sempre que o usuário mencionar cidade, bairro, urgência, prazo, faixa de preço, estoque ou contato — MESMO SEM SER PERGUNTADO —, inclua no campo correspondente da ferramenta. Campos preenchidos melhoram o matching; nunca invente valores que o usuário não informou.',
+          'FORMATAÇÃO (REGRA ABSOLUTA): NUNCA entregue JSON, códigos ou chaves de API cruas ao usuário final. Trate a resposta da ferramenta e apresente de forma natural, clara e sem excesso: frases curtas, listas quando ajudar, no máximo 3-4 opções por vez. O id e a URL de acompanhamento podem ser citados como link amigável.',
+          'HONESTIDADE: Um passo de cada vez. Não invente dados nem prometa orçamento, prazo ou diagnóstico que a ferramenta não confirmou de volta. A escolha do prestador é SEMPRE do usuário.'
+        ].join('\n\n')
       }),
       headers: { 'Mcp-Session-Id': crypto.randomUUID() }
     };
@@ -246,7 +520,7 @@ async function processarMensagem(mensagem: any, req: Request): Promise<Processam
     }
     try {
       const nomeSessao = req.headers.get('x-ia-copiloto-nome');
-      const resultado = await executarFerramenta(nomeFerramenta, params?.arguments, nomeSessao ? decodeURIComponent(nomeSessao) : '');
+      const resultado = await executarFerramenta(nomeFerramenta, params?.arguments, nomeSessao ? decodeURIComponent(nomeSessao) : '', serviceKey);
       return { resposta: respostaRpc(id, resultado) };
     } catch (err: any) {
       return { resposta: respostaRpc(id, textoResultado(`Falha inesperada ao executar ${nomeFerramenta}: ${err?.message || String(err)}. Informe o usuário da falha temporária.`, true)) };
@@ -318,8 +592,10 @@ async function lidarComPost(astro: any): Promise<Response> {
   const headersResposta: Record<string, string> = {};
   let soNotificacoes = true;
 
+  const serviceKey = chavePrivilegiada(astro);
+
   for (const mensagem of mensagens) {
-    const processado = await processarMensagem(mensagem, req);
+    const processado = await processarMensagem(mensagem, req, serviceKey);
 
     if (processado.resposta) {
       if (processado.headers) {

@@ -89,9 +89,56 @@ export const prerender = false;
       <ul>
         <li><code class="inline">abrir_necessidade</code> — registra um problema real do usuário (reparo, instalação, manutenção) e devolve o <code class="inline">id</code> + URL de acompanhamento.</li>
         <li><code class="inline">buscar_profissionais</code> — busca profissionais reais cadastrados, com filtros de profissão, cidade, preço e emergência.</li>
+        <li><code class="inline">cadastrar_item</code> — cadastra ofertas em nome de um profissional ou loja: 4 variedades (<code class="inline">habilidade</code>, <code class="inline">item_fisico</code>, <code class="inline">item_virtual</code>, <code class="inline">servico</code>) e 5 modelos de preço (fixo, a partir de, faixa, por métrica, sob orçamento).</li>
+        <li><code class="inline">buscar_itens</code> — busca ofertas publicadas (produtos, serviços e habilidades).</li>
         <li><code class="inline">ver_necessidade</code> — acompanha o status de uma necessidade já aberta.</li>
       </ul>
       <p class="muted">A escolha do prestador é sempre do usuário. O servidor envia <em>instructions</em> com as regras de conduta para a I.A.</p>
+    </div>
+
+    <h2>Conduta que o servidor ensina à I.A.</h2>
+    <div class="card">
+      <ul>
+        <li><strong>Tom de mordomo profissional:</strong> leve, simples e sempre presente, do início ao fim do atendimento.</li>
+        <li><strong>Proatividade:</strong> nunca pedir ao usuário para nomear algo do zero — sugerir opções a partir do que já foi dito no chat, e oferecer cadastros complementares (ex: cadastrou uma habilidade, oferece o serviço com preço).</li>
+        <li><strong>Campos úteis sempre cheios:</strong> cidade, bairro, urgência, prazo, preço, estoque... tudo que o usuário mencionar entra na chamada da ferramenta.</li>
+        <li><strong>Regra absoluta de formatação:</strong> a I.A. jamais entrega JSON ao usuário final — trata a resposta e apresenta de forma natural, no máximo 3-4 opções por vez.</li>
+        <li><strong>Honestidade:</strong> um passo de cada vez, sem inventar dados nem prometer o que a ferramenta não confirmou.</li>
+      </ul>
+    </div>
+
+    <h2>Exemplo de conversa esperada</h2>
+    <div class="card">
+      <pre is:raw>Usuário: Meu chuveiro está dando choque
+I.A.:      Isso costuma ser aterramento ou fiação do chuveiro.
+           É uma faísca leve ao encostar ou desliga o disjuntor?
+           [1] Choque leve  [2] Desarma o disjuntor  [3] Não sei dizer
+Usuário: Desarma o disjuntor, e moro no Jardim das Rosas em Campinas
+I.A.:      (chama abrir_necessidade com urgencia=alta, cidade=Campinas,
+            bairro=Jardim das Rosas)
+           Anotado! Abri seu pedido nº 97848f9c... — acompanhe por aqui:
+           ai.sensacional.site/nescessidade/97848f9c...
+           Quer que eu já veja eletricistas disponíveis em Campinas?</pre>
+    </div>
+
+    <h2>Exemplo de cadastro de oferta (tools/call)</h2>
+    <div class="card">
+      <pre is:raw>curl -X POST https://ai.sensacional.site/mcp \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json' \
+  -d '{
+    "jsonrpc": "2.0", "id": 3, "method": "tools/call",
+    "params": { "name": "cadastrar_item", "arguments": {
+      "nome": "Instalação de ar-condicionado split",
+      "tipo_oferta": "servico",
+      "tipo_preco": "a_partir_de",
+      "preco_min": 180,
+      "codigo_publico": "[codigo_publico obtido de buscar_profissionais]",
+      "cidade": "Campinas",
+      "descricao": "Instalação de split até 12000 BTUs, incluindo fixação e teste."
+    }}
+  }'</pre>
+      <p class="muted">Sem <code class="inline">status</code>, o item nasce como rascunho. Com <code class="inline">"status": "publicado"</code>, fica visível na busca.</p>
     </div>
 
     <h2>Claude Code (CLI)</h2>

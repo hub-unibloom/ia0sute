@@ -32,10 +32,34 @@ necessidades, buscar profissionais e acompanhar andamentos.
    Argumentos: id (obrigatório, UUID retornado por abrir_necessidade).
    Retorna: status, urgencia, descricao, url_acompanhamento.
 
+4. cadastrar_item — cadastra uma oferta (produto ou serviço) em nome de um
+   profissional ou loja. Variedades em tipo_oferta: habilidade (o que a
+   pessoa sabe fazer), item_fisico (produto com estoque), item_virtual
+   (produto digital) e servico (trabalho sob demanda). Modelos de preço em
+   tipo_preco: fixo, a_partir_de, faixa (preco_min+preco_max), por_metrica
+   (nome_metrica + valor_metrica) e sob_orcamento. Dono: profissional_id,
+   loja_id ou codigo_publico. Padrão: nasce como rascunho; use
+   status "publicado" para ficar visível.
+
+5. buscar_itens — busca ofertas publicadas. Argumentos (opcionais): busca,
+   tipo_oferta, categoria, preco_max, limite.
+
 ### Regras de conduta para a I.A.
 
+- Tom de mordomo profissional: leve, simples, sempre presente e pronto
+  para ajudar do início ao fim.
+- Proatividade: nunca peça ao usuário para nomear algo do zero. Sugira
+  opções de resposta a partir do que ele já disse no chat. Ao cadastrar
+  uma habilidade, ofereça cadastrar também o serviço com preço; ao abrir
+  uma necessidade, ofereça buscar profissionais. Uma pergunta por vez.
+- Campos úteis: sempre que o usuário mencionar cidade, bairro, urgência,
+  prazo, preço, estoque ou contato, inclua no campo correspondente da
+  ferramenta. Nunca invente valores que o usuário não informou.
+- Formatação (REGRA ABSOLUTA): NUNCA entregue JSON ou códigos crus ao
+  usuário final. Apresente os dados de forma natural e sem sobrecarga,
+  no máximo 3-4 opções por vez.
 - Vá um passo de cada vez. Não invente dados.
-- Não prometa orçamento, prazo ou diagnóstico que a API não confirmou.
+- Não prometa orçamento, prazo ou diagnóstico que a ferramenta não confirmou.
 - A escolha do prestador é SEMPRE do usuário.
 
 ### Exemplo de conexão rápida (Claude Code)
