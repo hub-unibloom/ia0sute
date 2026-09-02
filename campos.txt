@@ -1,0 +1,19 @@
+
+
+create table public.necessidade (
+  ia_copiloto_id uuid null,//devemos ter uma forma de preencher isos aqui automaticamente tambem.
+  canal_origem character varying(50) null, //'site de i.a' preencher isso seja o worker, edge ou o site essa é a repsosta
+  idioma character varying(10) not null default 'pt-BR'::character varying,
+  moeda character(3) not null default 'BRL'::bpchar,
+  urgencia public.urgencia_enum not null default 'media'::urgencia_enum,
+  descricao_necessidade text not null, //descrição clara aqui das necessidades 
+  mensagem_origem text null, //
+  cidade character varying(100) null,
+  bairro character varying(100) null,
+  localidade_id uuid null,
+  localizacao geography null,
+  prazo_inicio timestamp with time zone null,
+  prazo_conclusao timestamp with time zone null,
+  requer_vistoria boolean not null default false,  //a i.a ddeve respodner qui se os erviço que ta pedindo é simples como uma mannicure, ou seja, é corriqueiro ou se é algo como uma reforma de banheiro que precisa ser vista. ou seja, decida ai baseado em como seu usuario é.
+  composicao jsonb not null default '{}'::jsonb,
+  midias jsonb not null default '[]'::jsonb, // o jsonb aqui é comoa i.a quiser fazer melhro, ela pode colaor trnacrição unica, ou pode clocar um transcrição destrinchada, do que usuario dela encviou apra ela, peça a ele fotos, tipo diga ao cleinte apra enicar imahens, videos ou docuemtnos apra que vc possa auxiliar ele melhor e lkiste a trnacrição minuciosa de cada midia enviada pelo suuario  aora esse orçamento.

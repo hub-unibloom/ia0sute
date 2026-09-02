@@ -1,0 +1,11 @@
+---
+export const prerender = false;
+
+// Redirecionamento 301 Permanente de /entrar para a nova rota curta /p
+const url = new URL(Astro.request.url);
+const corpoUrl = url.searchParams.get('corpo-url');
+
+const targetUrl = corpoUrl ? `/p/?corpo-url=${encodeURIComponent(corpoUrl)}` : '/p/';
+
+return Astro.redirect(targetUrl, 301);
+---

@@ -1,0 +1,17 @@
+name = "site-da-ia-worker"
+main = "worker.ts"
+compatibility_date = "2026-09-01"
+
+# Configuração de rota para sobrepor ao Cloudflare Pages sem conflito de DNS
+routes = [
+  { pattern = "ai.sensacional.site/*", zone_name = "sensacional.site" }
+]
+
+[vars]
+ENVIRONMENT = "production"
+SUPABASE_URL = "https://tcxhuryqrzidvrltjhiz.supabase.co"
+SUPABASE_ANON_KEY = "sb_publishable_Xz1PSjOLImkMDkF3waRw1g_EAl1DiZ1"
+
+[observability.logs]
+enabled = true
+invocation_logs = true

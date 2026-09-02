@@ -1,0 +1,215 @@
+---
+import { decodificarPayloadUrl, codificarPayloadUrl } from '../../lib/payload';
+import { gerarApiKeyIa, calcularHashApiKey, registrarCopilotoSupabase, salvarOuAtualizarNecessidade, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../lib/supabase';
+
+export const prerender = false;
+
+let fullUrl = '';
+let idNecessidade = '00000';
+let corpoUrlRaw: string | null = null;
+let payloadDecodificado: any = null;
+let apiKeyCopiloto = '';
+let nomeCopiloto = 'Claude / Gemini Copilot';
+let dadosNecessidadeBanco: any = null;
+let urlAtualizacaoExemplo = '';
+
+try {
+  fullUrl = Astro.request.url;
+  const requestUrl = new URL(fullUrl);
+
+  const { id } = Astro.params;
+  idNecessidade = id || '00000';
+
+  corpoUrlRaw = requestUrl.searchParams.get('corpo-url');
+  payloadDecodificado = decodificarPayloadUrl(corpoUrlRaw);
+
+  const workerApiKey = Astro.request.headers.get('x-ia-api-key');
+  const workerCopilotoNome = Astro.request.headers.get('x-ia-copiloto-nome');
+
+  apiKeyCopiloto = workerApiKey || payloadDecodificado?.api_key || '';
+  if (workerCopilotoNome) {
+    try { nomeCopiloto = decodeURIComponent(workerCopilotoNome); } catch (_e) { nomeCopiloto = workerCopilotoNome; }
+  } else if (payloadDecodificado?.nome) {
+    nomeCopiloto = payloadDecodificado.nome;
+  }
+
+  // Se veio corpo-url com atualizações nesta mesma necessidade, salvamos primeiro no Supabase
+  if (payloadDecodificado && (payloadDecodificado.descricao_necessidade || payloadDecodificado.descricao || payloadDecodificado.urgencia)) {
+    const desc = payloadDecodificado.descricao_necessidade || payloadDecodificado.descricao || '';
+    await salvarOuAtualizarNecessidade({
+      idNecessidade: idNecessidade,
+      apiKey: apiKeyCopiloto,
+      descricao: desc,
+      urgencia: payloadDecodificado.urgencia || 'media',
+      cidade: payloadDecodificado.cidade || null,
+      bairro: payloadDecodificado.bairro || null,
+      payloadCompleto: payloadDecodificado
+    });
+  }
+
+  // Buscar estado atualizado do banco Supabase
+  if (idNecessidade && idNecessidade !== '00000') {
+    try {
+      const resp = await fetch(`${SUPABASE_URL}/rest/v1/necessidade?id=eq.${idNecessidade}`, {
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+        }
+      });
+      if (resp.ok) {
+        const rows = await resp.json();
+        if (rows && rows.length > 0) {
+          dadosNecessidadeBanco = rows[0];
+        }
+      }
+    } catch (e) {
+      console.error('Erro ao buscar necessidade do banco:', e);
+    }
+  }
+
+  if (!apiKeyCopiloto) {
+    const { apiKey, prefix } = gerarApiKeyIa();
+    apiKeyCopiloto = apiKey;
+
+    calcularHashApiKey(apiKey).then(hash => {
+      registrarCopilotoSupabase({
+        nome: nomeCopiloto,
+        apiKeyHash: hash,
+        prefix: prefix,
+        metadata: { payload: payloadDecodificado, url_origem: fullUrl }
+      });
+    }).catch(e => console.error('Erro ao gerar hash:', e));
+  }
+
+  const jsonProximoUpdate = {
+    api_key: apiKeyCopiloto,
+    id_necessidade: idNecessidade,
+    descricao_necessidade: dadosNecessidadeBanco?.descricao_necessidade || "Atualização da necessidade",
+    urgencia: dadosNecessidadeBanco?.urgencia || "media",
+    cidade: dadosNecessidadeBanco?.cidade || "Cidade",
+    bairro: dadosNecessidadeBanco?.bairro || "Bairro"
+  };
+  urlAtualizacaoExemplo = `https://ai.sensacional.site/p/?corpo-url=${codificarPayloadUrl(jsonProximoUpdate)}`;
+
+} catch (err) {
+  console.error('Erro na renderização de p/[id].astro:', err);
+}
+---
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Necessidade #{idNecessidade} - Status Atualizado (/p)</title>
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --card: #111827;
+      --border: #1f2937;
+      --text: #e5e7eb;
+      --accent: #10b981;
+      --accent-blue: #3b82f6;
+      --code-bg: #000000;
+    }
+    body {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      background-color: var(--bg);
+      color: var(--text);
+      padding: 2rem;
+      margin: 0;
+      display: flex;
+      justify-content: center;
+    }
+    .card {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 2rem;
+      background: var(--card);
+      max-width: 680px;
+      width: 100%;
+    }
+    .badge {
+      background: rgba(59, 130, 246, 0.2);
+      color: var(--accent-blue);
+      border: 1px solid var(--accent-blue);
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      font-weight: bold;
+    }
+    .api-key-box {
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      padding: 1rem;
+      border-radius: 6px;
+      margin: 1rem 0;
+      word-break: break-all;
+    }
+    .alerta-ia {
+      background: rgba(245, 158, 11, 0.1);
+      border-left: 4px solid #f59e0b;
+      color: #fbbf24;
+      padding: 1rem;
+      margin: 1.5rem 0;
+      border-radius: 4px;
+    }
+    pre {
+      background: var(--code-bg);
+      padding: 1rem;
+      border-radius: 6px;
+      overflow-x: auto;
+      color: #9ca3af;
+    }
+    .orientacao {
+      border-left: 4px solid var(--accent-blue);
+      padding-left: 1rem;
+      margin: 1.5rem 0;
+    }
+    .url-box {
+      background: rgba(16, 185, 129, 0.06);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      padding: 1rem;
+      border-radius: 6px;
+      word-break: break-all;
+      margin-top: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <span class="badge">CONSULTA DE PEDIDO — /p/{idNecessidade}</span>
+    
+    <div class="orientacao">
+      <h2>[STATUS DA NECESSIDADE NO SUPABASE]</h2>
+      <p><strong>Copiloto:</strong> {nomeCopiloto}</p>
+      <p><strong>Status Atual:</strong> <strong style="color: #10b981;">{(dadosNecessidadeBanco?.status || 'pendente').toUpperCase()}</strong></p>
+      <p><strong>Descrição Registrada:</strong> {dadosNecessidadeBanco?.descricao_necessidade || 'Pendente de atualização'}</p>
+      <p><strong>Urgência:</strong> {dadosNecessidadeBanco?.urgencia || 'media'}</p>
+      {dadosNecessidadeBanco?.cidade && <p><strong>Cidade:</strong> {dadosNecessidadeBanco.cidade}</p>}
+      {dadosNecessidadeBanco?.bairro && <p><strong>Bairro:</strong> {dadosNecessidadeBanco.bairro}</p>}
+    </div>
+
+    <div class="api-key-box">
+      <strong>Chave de Permissão para Edição:</strong><br />
+      <code>{apiKeyCopiloto}</code>
+    </div>
+
+    <div class="alerta-ia">
+      <strong>⚠️ REGRAS PARA A I.A. NESTE ESTÁGIO:</strong><br />
+      • <strong>NÃO FAÇA PERGUNTAS DESNECESSÁRIAS:</strong> Se o pedido já possui descrição e urgência, o sistema já iniciou a busca pelo prestador mais próximo e ágil.<br />
+      • Para atualizar novos dados nesta mesma necessidade, inclua <code>"id_necessidade": "{idNecessidade}"</code> e <code>"api_key": "{apiKeyCopiloto}"</code> no parâmetro <code>corpo-url</code> enviando para <code>/p/</code>.
+    </div>
+
+    <h3>Dados Brutos do Banco</h3>
+    <pre>{JSON.stringify(dadosNecessidadeBanco || { id: idNecessidade, status: "pendente" }, null, 2)}</pre>
+
+    <div class="url-box">
+      <strong>URL modelo para atualizar esta necessidade:</strong><br />
+      <code>{urlAtualizacaoExemplo}</code>
+    </div>
+  </div>
+</body>
+</html>

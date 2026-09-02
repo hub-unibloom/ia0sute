@@ -1,0 +1,268 @@
+---
+// LISTAR PESSOAS — página dedicada de documentação + busca funcional
+// SSR puro (sem JS no cliente). Documenta a função para IAs externas e
+// permite executar a busca via querystring na própria página.
+
+export const prerender = false;
+
+import { listarPessoas, type PessoaEncontrada, type FiltrosPessoas } from '../lib/supabase';
+
+// ---------- Parse dos filtros vindos da querystring ----------
+const url = new URL(Astro.url);
+const qs = url.searchParams;
+
+const filtros: FiltrosPessoas = {};
+const busca = qs.get('busca')?.trim();
+if (busca) filtros.busca = busca;
+const profissoes = qs.get('profissoes')?.split(',').map(s => s.trim()).filter(Boolean);
+if (profissoes?.length) filtros.profissoes = profissoes;
+const habilidades = qs.get('habilidades')?.split(',').map(s => s.trim()).filter(Boolean);
+if (habilidades?.length) filtros.habilidades = habilidades;
+const cidade = qs.get('cidade')?.trim();
+if (cidade) filtros.cidade = cidade;
+const idadeMin = Number(qs.get('idade_min'));
+if (qs.get('idade_min') && !Number.isNaN(idadeMin)) filtros.idadeMin = idadeMin;
+const idadeMax = Number(qs.get('idade_max'));
+if (qs.get('idade_max') && !Number.isNaN(idadeMax)) filtros.idadeMax = idadeMax;
+const precoMin = Number(qs.get('preco_min'));
+if (qs.get('preco_min') && !Number.isNaN(precoMin)) filtros.precoMin = precoMin;
+const precoMax = Number(qs.get('preco_max'));
+if (qs.get('preco_max') && !Number.isNaN(precoMax)) filtros.precoMax = precoMax;
+if (qs.get('emergencia') === '1') filtros.atendeEmergencia = true;
+const limite = Number(qs.get('limite'));
+if (limite > 0) filtros.limite = Math.min(limite, 100);
+const offset = Number(qs.get('offset'));
+if (offset > 0) filtros.offset = offset;
+
+const temFiltros = Object.keys(filtros).length > 0;
+
+let resultado: PessoaEncontrada[] = [];
+let erro: string | null = null;
+let total = 0;
+if (temFiltros) {
+  const r = await listarPessoas(filtros);
+  if (r.sucesso) {
+    resultado = r.pessoas;
+    total = r.pessoas[0]?.total ?? resultado.length;
+  } else {
+    erro = r.erro || 'Erro desconhecido';
+  }
+}
+
+function formatarPreco(p: PessoaEncontrada['habilidades'][number]): string {
+  if (p.tipo_preco === 'sob_orcamento') return 'sob orçamento';
+  if (p.tipo_preco === 'por_metrica') return `R$ ${p.valor_metrica}/${p.nome_metrica}`;
+  if (p.tipo_preco === 'faixa') return `R$ ${p.preco_min} – ${p.preco_max}`;
+  if (p.tipo_preco === 'a_partir_de') return `a partir de R$ ${p.preco_min}`;
+  return p.preco_min != null ? `R$ ${p.preco_min}` : 'consultar';
+}
+
+const jsonExemplo = JSON.stringify({
+  habilidades: ["eletricista", "encanador"],
+  cidade: "São Paulo",
+  idade_min: 18,
+  idade_max: 60,
+  preco_min: 50,
+  preco_max: 500
+}, null, 2);
+---
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Listar Pessoas - Busca de Profissionais - Sensacional</title>
+  <meta name="description" content="Função listarPessoas: busca de profissionais por habilidade, profissão, cidade, idade, faixa de preço e mais." />
+  <style>
+    :root {
+      --bg: #07090f; --card: #0d1321; --border: #1a2744;
+      --text: #e2e8f0; --muted: #64748b; --green: #10b981;
+      --blue: #38bdf8; --purple: #a78bfa; --yellow: #fbbf24; --red: #f87171;
+      --code-bg: #030712;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      background: var(--bg); color: var(--text); margin: 0; padding: 1.5rem;
+      display: flex; justify-content: center; font-size: 14px; line-height: 1.6;
+    }
+    main { max-width: 860px; width: 100%; }
+    .badge {
+      background: linear-gradient(135deg, rgba(56,189,248,0.15), rgba(167,139,250,0.15));
+      border: 1px solid var(--blue); color: var(--blue);
+      padding: 6px 14px; border-radius: 4px; font-size: 0.75rem;
+      font-weight: bold; display: inline-block; margin-bottom: 0.8rem;
+    }
+    h1 { color: var(--blue); margin: 0.4rem 0 0.2rem; font-size: 1.3rem; }
+    h2 { color: var(--green); font-size: 0.95rem; border-bottom: 1px solid var(--border);
+         padding-bottom: 0.4rem; margin-top: 2rem; text-transform: uppercase; }
+    p.subtitle { color: var(--muted); margin-top: 0; font-size: 0.85rem; }
+    code { background: var(--code-bg); color: var(--green); padding: 2px 6px;
+           border-radius: 4px; font-size: 0.82rem; word-break: break-all; }
+    pre { background: var(--code-bg); padding: 1rem; border-radius: 8px;
+          overflow-x: auto; border: 1px solid var(--border); color: #94a3b8;
+          margin: 0.6rem 0; font-size: 0.8rem; }
+    table { width: 100%; border-collapse: collapse; margin: 0.8rem 0; font-size: 0.8rem; }
+    th, td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; vertical-align: top; }
+    th { background: var(--card); color: var(--blue); }
+    td.param { color: var(--yellow); white-space: nowrap; }
+    td.muted { color: var(--muted); }
+    .card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 8px; padding: 16px; margin: 0.8rem 0;
+    }
+    .card .nome { color: var(--blue); font-weight: bold; font-size: 0.95rem; }
+    .card .meta { color: var(--muted); font-size: 0.78rem; margin: 4px 0; }
+    .tag {
+      display: inline-block; background: rgba(16,185,129,0.12); border: 1px solid var(--green);
+      color: var(--green); border-radius: 4px; padding: 1px 8px; font-size: 0.72rem; margin: 2px 4px 2px 0;
+    }
+    .tag-prof { border-color: var(--purple); color: var(--purple); background: rgba(167,139,250,0.1); }
+    .hab { margin-top: 8px; font-size: 0.78rem; color: #94a3b8; }
+    .hab strong { color: var(--yellow); }
+    .alerta-erro { border: 1px solid var(--red); color: var(--red);
+                   background: rgba(248,113,113,0.08); border-radius: 6px; padding: 12px 16px; }
+    .form-busca { background: var(--card); border: 1px solid var(--border);
+                  border-radius: 8px; padding: 16px; margin: 1rem 0; }
+    .form-busca label { display: block; color: var(--muted); font-size: 0.75rem; margin: 8px 0 2px; }
+    .form-busca input[type="text"], .form-busca input[type="number"] {
+      background: var(--code-bg); border: 1px solid var(--border); color: var(--text);
+      padding: 6px 10px; border-radius: 4px; width: 100%; font-family: inherit; font-size: 0.82rem;
+    }
+    .linha { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+    button {
+      background: rgba(16,185,129,0.15); border: 1px solid var(--green); color: var(--green);
+      padding: 10px 18px; border-radius: 6px; font-weight: bold; font-size: 0.85rem;
+      margin-top: 12px; cursor: pointer; font-family: inherit; width: 100%;
+    }
+    button:hover { background: var(--green); color: #000; }
+    .navlink { color: var(--blue); }
+  </style>
+</head>
+<body>
+  <main>
+    <span class="badge">🔎 FUNÇÃO: LISTAR PESSOAS</span>
+    <h1>BUSCA DE PROFISSIONAIS POR ATRIBUTOS</h1>
+    <p class="subtitle">
+      Encontra pessoas (perfis profissionais) combinando habilidades, profissões, cidade,
+      idade, faixa de preço, urgência e janelas de tempo. Todos os filtros são opcionais
+      e combináveis entre si (E lógico entre categorias). <a class="navlink" href="/">← voltar à home</a>
+    </p>
+
+    <h2>📖 Documentação dos filtros</h2>
+    <table>
+      <tr><th>Parâmetro</th><th>Tipo</th><th>Descrição</th></tr>
+      <tr><td class="param">busca</td><td class="muted">texto</td><td>Texto livre: casa com nome público, título, bio, profissões e nomes de habilidades (ignora acentos).</td></tr>
+      <tr><td class="param">habilidades</td><td class="muted">lista CSV</td><td>Encontra quem tem publicada <strong>alguma</strong> dessas habilidades (ex: <code>eletricista,encanador</code>).</td></tr>
+      <tr><td class="param">profissoes</td><td class="muted">lista CSV</td><td>Encontra quem declara <strong>alguma</strong> dessas profissões no perfil.</td></tr>
+      <tr><td class="param">cidade</td><td class="muted">texto</td><td>Cidade do endereço do perfil (ignora acentos e caixa).</td></tr>
+      <tr><td class="param">idade_min / idade_max</td><td class="muted">número</td><td>Faixa de idade calculada a partir da data de nascimento.</td></tr>
+      <tr><td class="param">preco_min / preco_max</td><td class="muted">número</td><td>Faixa de preço das habilidades publicadas (interseção).</td></tr>
+      <tr><td class="param">emergencia</td><td class="muted">1/0</td><td><code>1</code> = somente quem atende emergência.</td></tr>
+      <tr><td class="param">limite / offset</td><td class="muted">número</td><td>Paginação (limite máx. 100, padrão 20).</td></tr>
+    </table>
+    <p class="subtitle">
+      Para IAs: o mesmo filtro pode ser enviado por POST na RPC <code>listar_pessoas</code> do Supabase
+      (parâmetros <code>p_busca</code>, <code>p_habilidades</code>, <code>p_profissoes</code>,
+      <code>p_cidade</code>, <code>p_idade_min/max</code>, <code>p_preco_min/max</code>,
+      <code>p_atende_emergencia</code>, <code>p_limite</code>, <code>p_offset</code>).
+    </p>
+    <pre>{jsonExemplo}</pre>
+
+    <h2>🧪 Buscar agora</h2>
+    <form class="form-busca" method="get" action="/pessoas">
+      <label for="busca">Busca livre (nome, título, bio, profissão ou habilidade)</label>
+      <input type="text" id="busca" name="busca" value={busca || ''} placeholder="ex: eletricista" />
+      <div class="linha">
+        <div>
+          <label for="habilidades">Habilidades (separadas por vírgula)</label>
+          <input type="text" id="habilidades" name="habilidades" value={habilidades?.join(',') || ''} placeholder="trocar fiação,instalar tomada" />
+        </div>
+        <div>
+          <label for="profissoes">Profissões (separadas por vírgula)</label>
+          <input type="text" id="profissoes" name="profissoes" value={profissoes?.join(',') || ''} placeholder="eletricista" />
+        </div>
+        <div>
+          <label for="cidade">Cidade</label>
+          <input type="text" id="cidade" name="cidade" value={cidade || ''} placeholder="São Paulo" />
+        </div>
+      </div>
+      <div class="linha">
+        <div>
+          <label for="idade_min">Idade mínima</label>
+          <input type="number" id="idade_min" name="idade_min" value={qs.get('idade_min') || ''} min="0" />
+        </div>
+        <div>
+          <label for="idade_max">Idade máxima</label>
+          <input type="number" id="idade_max" name="idade_max" value={qs.get('idade_max') || ''} min="0" />
+        </div>
+        <div>
+          <label for="preco_min">Preço mínimo (R$)</label>
+          <input type="number" id="preco_min" name="preco_min" value={qs.get('preco_min') || ''} min="0" />
+        </div>
+      </div>
+      <div class="linha">
+        <div>
+          <label for="preco_max">Preço máximo (R$)</label>
+          <input type="number" id="preco_max" name="preco_max" value={qs.get('preco_max') || ''} min="0" />
+        </div>
+        <div>
+          <label for="limite">Limite de resultados</label>
+          <input type="number" id="limite" name="limite" value={qs.get('limite') || '20'} min="1" max="100" />
+        </div>
+        <div>
+          <label for="emergencia">Somente emergência</label>
+          <select id="emergencia" name="emergencia" style="background:var(--code-bg);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:4px;width:100%;font-family:inherit;">
+            <option value="">Não</option>
+            <option value="1" selected={qs.get('emergencia') === '1'}>Sim</option>
+          </select>
+        </div>
+      </div>
+      <button type="submit">🔎 BUSCAR PESSOAS</button>
+    </form>
+
+    <h2>📋 Resultados</h2>
+    {erro && (
+      <div class="alerta-erro">Erro na busca: {erro}<br /><small>Verifique se a RPC <code>listar_pessoas</code> já foi aplicada ao banco (arquivo <code>listar_pessoas.sql</code>).</small></div>
+    )}
+    {temFiltros && !erro && (
+      <p class="subtitle">{total} pessoa(s) encontrada(s).</p>
+    )}
+    {!temFiltros && !erro && (
+      <p class="subtitle">Informe ao menos um filtro acima para executar a busca.</p>
+    )}
+    {resultado.map((p) => (
+      <div class="card">
+        <span class="nome">{p.nome_publico}</span>
+        {p.titulo && <span class="meta"> — {p.titulo}</span>}
+        <div class="meta">
+          {p.codigo_publico}
+          {p.cidade && ` · ${p.cidade}${p.estado ? '/' + p.estado : ''}`}
+          {p.idade != null && ` · ${p.idade} anos`}
+          {` · confiança ${p.indice_confianca}`}
+          {` · ${p.jobs_concluidos} trabalho(s) concluído(s)`}
+          {p.atende_emergencia && ' · 🚨 atende emergência'}
+        </div>
+        {p.profissoes?.length > 0 && (
+          <div class="hab">
+            {p.profissoes.map((prof) => <span class="tag tag-prof">{prof}</span>)}
+          </div>
+        )}
+        {p.habilidades?.length > 0 && (
+          <div class="hab">
+            <strong>Habilidades:</strong><br />
+            {p.habilidades.map((h) => (
+              <span class="tag">{h.nome} · {formatarPreco(h)}</span>
+            ))}
+          </div>
+        )}
+        {p.bio && <div class="meta" style="margin-top:8px;">{p.bio.slice(0, 200)}{p.bio.length > 200 ? '…' : ''}</div>}
+        <div class="meta">
+          {p.slug && <a class="navlink" href={`/profissional/${p.slug}`}>ver perfil →</a>}
+        </div>
+      </div>
+    ))}
+  </main>
+</body>
+</html>
