@@ -1,0 +1,142 @@
+---
+export const prerender = false;
+---
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Conectar sua I.A. via MCP — Sensacional</title>
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --card: #111827;
+      --border: #1f2937;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --accent: #10b981;
+      --accent-blue: #3b82f6;
+      --code-bg: #000000;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      background-color: var(--bg);
+      color: var(--text);
+      padding: 2rem 1rem;
+      margin: 0;
+      display: flex;
+      justify-content: center;
+    }
+    main { max-width: 860px; width: 100%; }
+    h1 { font-size: 1.4rem; color: var(--accent); }
+    h2 { font-size: 1.05rem; color: var(--accent-blue); margin-top: 2.5rem; }
+    a { color: var(--accent-blue); }
+    .badge {
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      font-weight: bold;
+    }
+    .card {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.5rem;
+      background: var(--card);
+      margin: 1rem 0;
+    }
+    .endpoint {
+      background: var(--code-bg);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      padding: 1rem;
+      border-radius: 6px;
+      font-size: 1.05rem;
+      word-break: break-all;
+      margin: 0.5rem 0 0;
+    }
+    pre {
+      background: var(--code-bg);
+      padding: 1rem;
+      border-radius: 6px;
+      overflow-x: auto;
+      color: #d1d5db;
+      border: 1px solid var(--border);
+    }
+    code.inline { background: var(--code-bg); padding: 2px 6px; border-radius: 4px; color: var(--accent); }
+    .ok { color: var(--accent); }
+    ul { line-height: 1.7; }
+    .muted { color: var(--muted); }
+  </style>
+</head>
+<body>
+  <main>
+    <span class="badge">MODEL CONTEXT PROTOCOL</span>
+    <h1>Conecte sua I.A. ao mundo real via MCP</h1>
+    <p>Este site expõe um <strong>servidor MCP</strong> pelo transporte padrão <strong>Streamable HTTP</strong>.
+       Qualquer cliente MCP (Claude, Cursor, Windsurf, Codex, agentes próprios) conecta direto —
+       <strong class="ok">sem login, sem cadastro, sem credenciais</strong>. A I.A. é identificada pelo nome que ela mesma informa na conexão.</p>
+
+    <h2>Endpoint</h2>
+    <p class="endpoint">https://ai.sensacional.site/mcp</p>
+
+    <h2>O que a I.A. pode fazer</h2>
+    <div class="card">
+      <ul>
+        <li><code class="inline">abrir_necessidade</code> — registra um problema real do usuário (reparo, instalação, manutenção) e devolve o <code class="inline">id</code> + URL de acompanhamento.</li>
+        <li><code class="inline">buscar_profissionais</code> — busca profissionais reais cadastrados, com filtros de profissão, cidade, preço e emergência.</li>
+        <li><code class="inline">ver_necessidade</code> — acompanha o status de uma necessidade já aberta.</li>
+      </ul>
+      <p class="muted">A escolha do prestador é sempre do usuário. O servidor envia <em>instructions</em> com as regras de conduta para a I.A.</p>
+    </div>
+
+    <h2>Claude Code (CLI)</h2>
+    <pre is:raw>claude mcp add --transport http sensacional https://ai.sensacional.site/mcp</pre>
+
+    <h2>Claude Desktop / Claude.ai (conector personalizado)</h2>
+    <p>Configurações → Conectores → Adicionar conector personalizado:</p>
+    <pre is:raw>Nome: Sensacional
+URL:  https://ai.sensacional.site/mcp</pre>
+
+    <h2>Cursor / Windsurf (mcp.json)</h2>
+    <pre is:raw>{
+  "mcpServers": {
+    "sensacional": {
+      "url": "https://ai.sensacional.site/mcp"
+    }
+  }
+}</pre>
+
+    <h2>Codex CLI (config.toml)</h2>
+    <pre is:raw>[mcp_servers.sensacional]
+url = "https://ai.sensacional.site/mcp"</pre>
+
+    <h2>Testar na mão (curl)</h2>
+    <pre is:raw># 1. Inicializar a sessão
+curl -X POST https://ai.sensacional.site/mcp \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json' \
+  -d '{
+    "jsonrpc": "2.0", "id": 1, "method": "initialize",
+    "params": {
+      "protocolVersion": "2025-06-18",
+      "capabilities": {},
+      "clientInfo": { "name": "teste-curl", "version": "1.0.0" }
+    }
+  }'
+
+# 2. Listar ferramentas
+curl -X POST https://ai.sensacional.site/mcp \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json' \
+  -d '{"jsonrpc": "2.0", "id": 2, "method": "tools/list"}'</pre>
+
+    <h2>Para agentes sem cliente MCP</h2>
+    <p>O manifesto legível por máquinas está em <a href="/llms.txt">/llms.txt</a> — aponte sua I.A. para lá e ela aprende a se conectar sozinha.</p>
+  </main>
+</body>
+</html>
