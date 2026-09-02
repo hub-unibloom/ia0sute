@@ -7,7 +7,7 @@ create table public.necessidade (
   moeda character(3) not null default 'BRL'::bpchar,
   urgencia public.urgencia_enum not null default 'media'::urgencia_enum,
   descricao_necessidade text not null, //descrição clara aqui das necessidades 
-  mensagem_origem text null, //
+  mensagem_origem text null, //uyw nwscessidade 
   cidade character varying(100) null,
   bairro character varying(100) null,
   localidade_id uuid null,

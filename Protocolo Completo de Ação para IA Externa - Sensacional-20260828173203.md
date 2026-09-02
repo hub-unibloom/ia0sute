@@ -1,4 +1,4 @@
-# Protocolo Completo de Ação para IA Externa - Sensacional
+/home/cocorico/Documentos/CCC/site da i.a/Protocolo Completo de Ação para IA Externa - Sensacional-20260828173203.md# Protocolo Completo de Ação para IA Externa - Sensacional
 
 ## Standardização & Diretrizes Gerais
 * **Nomenclatura Padrão:** O resultado da submissão de uma **Necessidade** é sempre uma **Solução** (no código/payload/API utiliza-se `solution` / `solution_id`, em interfaces/textos utiliza-se `solução` ou `soluções`). Orçamentos criam Soluções.
