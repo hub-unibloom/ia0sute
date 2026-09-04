@@ -20,6 +20,7 @@ const HEADERS_CORS: Record<string, string> = {
 };
 
 
+
 function respostaRpc(id: any, result: any): any {
   return { jsonrpc: '2.0', id, result };
 }
