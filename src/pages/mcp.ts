@@ -19,6 +19,7 @@ const HEADERS_CORS: Record<string, string> = {
   'Access-Control-Expose-Headers': 'mcp-session-id',
 };
 
+
 function respostaRpc(id: any, result: any): any {
   return { jsonrpc: '2.0', id, result };
 }
