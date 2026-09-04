@@ -1,70 +1,60 @@
 export const prerender = false;
 
 const GET: any = async () => {
-  const texto = `# Sensacional — site da I.A.
+  const texto = `# Sensacional — ai.sensacional.site
 
-A plataforma Sensacional conecta usuários reais a profissionais de serviços
-(domésticos, reparos, instalações, manutenção). I.As copiloto podem abrir
-necessidades, buscar profissionais e acompanhar andamentos.
+Plataforma que conecta usuários a profissionais de serviços (reparos,
+instalações, manutenção, serviços domésticos). A página principal
+(https://ai.sensacional.site) documenta o fluxo completo com exemplos —
+comece por lá.
 
-## Servidor MCP (Model Context Protocol)
+## Como a I.A. é identificada
 
-- URL do endpoint: https://ai.sensacional.site/mcp
-- Transporte: Streamable HTTP (JSON-RPC 2.0)
-- Autenticação: NENHUMA exigida (sem login, sem credenciais). A I.A. é
-  identificada pelo nome que informa em clientInfo no initialize.
-- Guia de conexão: https://ai.sensacional.site/conectar
+Pela api_key no formato sk_ia_... . A própria plataforma gera e registra
+a chave no primeiro acesso — a I.A. não cria conta nem senha. Guarde a
+chave e reutilize-a em todas as chamadas.
 
-### Ferramentas disponíveis
+## Fluxo em 3 passos (IGUAL ao tutorial do site)
 
-1. abrir_necessidade — registra uma necessidade real do usuário.
-   Argumentos: descricao_necessidade (obrigatório), urgencia
-   (baixa|media|alta|emergencia), cidade, bairro, prazo_inicio,
-   prazo_conclusao, id_necessidade (para atualizar), nome_copiloto.
-   Retorna: id_necessidade, status, url_acompanhamento.
+1. OBTER A CHAVE: abra GET https://ai.sensacional.site/p/
+   A resposta contém sua api_key (sk_ia_...). Guarde o token.
 
-2. buscar_profissionais — busca profissionais reais cadastrados.
-   Argumentos (todos opcionais): busca, cidade, profissoes[], habilidades[],
-   preco_min, preco_max, atende_emergencia, limite (1-20), offset.
-   Retorna: lista de pessoas com nome, título, profissões, cidade e url_perfil.
+2. CRIAR NECESSIDADE: monte um JSON na raiz com api_key e
+   descricao_necessidade, converta para Base64 e envie no parametro
+   corpo-url:
+   GET https://ai.sensacional.site/p/?corpo-url=[PAYLOAD_BASE64]
+   Regras: campos sempre na raiz do JSON (sem sub-objetos); um unico
+   campo descricao_necessidade para o problema; nunca pergunte ao
+   usuario o que ele ja informou.
 
-3. ver_necessidade — consulta status de uma necessidade aberta.
-   Argumentos: id (obrigatório, UUID retornado por abrir_necessidade).
-   Retorna: status, urgencia, descricao, url_acompanhamento.
+3. ACOMPANHAR: GET https://ai.sensacional.site/p/[ID_DA_NECESSIDADE]
+   Retorna o status e as solucoes na medida em que chegam.
 
-4. cadastrar_item — cadastra uma oferta (produto ou serviço) em nome de um
-   profissional ou loja. Variedades em tipo_oferta: habilidade (o que a
-   pessoa sabe fazer), item_fisico (produto com estoque), item_virtual
-   (produto digital) e servico (trabalho sob demanda). Modelos de preço em
-   tipo_preco: fixo, a_partir_de, faixa (preco_min+preco_max), por_metrica
-   (nome_metrica + valor_metrica) e sob_orcamento. Dono: profissional_id,
-   loja_id ou codigo_publico. Padrão: nasce como rascunho; use
-   status "publicado" para ficar visível.
+## Buscar profissionais (sem chave)
 
-5. buscar_itens — busca ofertas publicadas. Argumentos (opcionais): busca,
-   tipo_oferta, categoria, preco_max, limite.
+GET https://ai.sensacional.site/pessoas?habilidades=eletricista&cidade=Sao Paulo&preco_max=300
 
-### Regras de conduta para a I.A.
+Filtros opcionais e combinaveis: habilidades (CSV), profissoes (CSV),
+busca (texto livre), cidade, idade_min, idade_max, preco_min, preco_max,
+emergencia=1, limite, offset.
 
-- Tom de mordomo profissional: leve, simples, sempre presente e pronto
-  para ajudar do início ao fim.
-- Proatividade: nunca peça ao usuário para nomear algo do zero. Sugira
-  opções de resposta a partir do que ele já disse no chat. Ao cadastrar
-  uma habilidade, ofereça cadastrar também o serviço com preço; ao abrir
-  uma necessidade, ofereça buscar profissionais. Uma pergunta por vez.
-- Campos úteis: sempre que o usuário mencionar cidade, bairro, urgência,
-  prazo, preço, estoque ou contato, inclua no campo correspondente da
-  ferramenta. Nunca invente valores que o usuário não informou.
-- Formatação (REGRA ABSOLUTA): NUNCA entregue JSON ou códigos crus ao
-  usuário final. Apresente os dados de forma natural e sem sobrecarga,
-  no máximo 3-4 opções por vez.
-- Vá um passo de cada vez. Não invente dados.
-- Não prometa orçamento, prazo ou diagnóstico que a ferramenta não confirmou.
-- A escolha do prestador é SEMPRE do usuário.
+## Opcional: conectar por MCP
 
-### Exemplo de conexão rápida (Claude Code)
+Clientes que falam o protocolo MCP (Claude, Cursor, Codex...) podem
+usar o endpoint https://ai.sensacional.site/mcp (POST, JSON-RPC).
+Nao exige login: a plataforma gera a api_key do copiloto
+automaticamente, como no fluxo acima. Guia:
+https://ai.sensacional.site/conectar
 
-claude mcp add --transport http sensacional https://ai.sensacional.site/mcp
+## Regras de conduta
+
+- Um passo de cada vez. Nao invente dados nem prometa orcamento,
+  prazo ou diagnostico que a plataforma nao confirmou.
+- A escolha do prestador e SEMPRE do usuario.
+- Nunca entregue JSON ou codigos crus ao usuario final: apresente as
+  coisas de forma natural, no maximo 3-4 opcoes por vez.
+- Sempre que o usuario mencionar cidade, bairro, urgencia ou prazo,
+  inclua no payload — nunca invente valores.
 `;
 
   return new Response(texto, {
