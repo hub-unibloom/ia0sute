@@ -25,23 +25,61 @@ const RATE_LIMIT_REGRAS: Record<string, number> = {
   'operacao_padrao': 20
 };
 
-// Armazenamento em memória do Worker para controle de taxa por janela deslizante de 60 segundos
+// Armazenamento em memória local (fallback quando KV não estiver vinculado)
 const rateLimitMap = new Map<string, number[]>();
 
-function checarRateLimit(apiKeyHash: string, operacao: string): { permitido: boolean; limite: number; restantes: number; retryAfterSec: number } {
+async function checarRateLimit(apiKeyHash: string, operacao: string, env?: any): {
+  permitido: boolean;
+  limite: number;
+  restantes: number;
+  retryAfterSec: number;
+} {
   const limite = RATE_LIMIT_REGRAS[operacao] || RATE_LIMIT_REGRAS['operacao_padrao'];
-  const chaveMap = `${apiKeyHash}:${operacao}`;
+  const chaveKv = `rl:${apiKeyHash}:${operacao}`;
   const agoraMs = Date.now();
   const janelaInicioMs = agoraMs - 60_000;
 
-  let timestamps = rateLimitMap.get(chaveMap) || [];
-  // Filtrar apenas chamadas dos últimos 60 segundos
+  // 1. TENTATIVA DE USO DE CLOUDFLARE KV (SE CONFIGURADO NO AMBIENTE)
+  if (env && env.RATE_LIMIT_KV) {
+    try {
+      const rawData = await env.RATE_LIMIT_KV.get(chaveKv, { type: 'json' });
+      let timestamps: number[] = Array.isArray(rawData) ? rawData : [];
+      timestamps = timestamps.filter(t => t > janelaInicioMs);
+
+      if (timestamps.length >= limite) {
+        const maisAntigo = timestamps[0] || agoraMs;
+        const retryAfterSec = Math.ceil((maisAntigo + 60_000 - agoraMs) / 1000);
+        return {
+          permitido: false,
+          limite,
+          restantes: 0,
+          retryAfterSec: Math.max(1, retryAfterSec)
+        };
+      }
+
+      timestamps.push(agoraMs);
+      // Salva no KV com expiração automática de 60 segundos (TTL)
+      await env.RATE_LIMIT_KV.put(chaveKv, JSON.stringify(timestamps), { expirationTtl: 60 });
+
+      return {
+        permitido: true,
+        limite,
+        restantes: limite - timestamps.length,
+        retryAfterSec: 0
+      };
+    } catch (err) {
+      console.warn('[Worker RateLimit] Falha ao acessar KV, utilizando fallback de memória:', err);
+    }
+  }
+
+  // 2. FALLBACK PARA MEMÓRIA RAM DO WORKER ISOLATE (ZERO LATÊNCIA EXTERNA)
+  let timestamps = rateLimitMap.get(chaveKv) || [];
   timestamps = timestamps.filter(t => t > janelaInicioMs);
 
   if (timestamps.length >= limite) {
     const maisAntigo = timestamps[0];
     const retryAfterSec = Math.ceil((maisAntigo + 60_000 - agoraMs) / 1000);
-    rateLimitMap.set(chaveMap, timestamps);
+    rateLimitMap.set(chaveKv, timestamps);
     return {
       permitido: false,
       limite,
@@ -51,9 +89,8 @@ function checarRateLimit(apiKeyHash: string, operacao: string): { permitido: boo
   }
 
   timestamps.push(agoraMs);
-  rateLimitMap.set(chaveMap, timestamps);
+  rateLimitMap.set(chaveKv, timestamps);
 
-  // Limpeza periódica do mapa em caso de acúmulo excessivo
   if (rateLimitMap.size > 10_000) {
     for (const [k, ts] of rateLimitMap.entries()) {
       if (ts.length === 0 || ts[ts.length - 1] < janelaInicioMs) {
@@ -263,7 +300,7 @@ export default {
     // 1. ENDPOINT: /api/v1/necessidade (CRIAR NECESSIDADE / RELATAR PROBLEMA)
     if ((pathname === '/api/v1/necessidade' || pathname === '/api/v1/necessidades') && metodo === 'POST') {
       const operacao = 'criar_necessidade';
-      const rlStats = checarRateLimit(apiKeyHash, operacao);
+      const rlStats = await checarRateLimit(apiKeyHash, operacao, env);
 
       if (!rlStats.permitido) {
         return criarRespostaRateLimit(operacao, rlStats);
@@ -343,7 +380,7 @@ export default {
     // 2. ENDPOINT: /api/v1/item (CADASTRAR PRODUTO / SERVIÇO / HABILIDADE)
     if ((pathname === '/api/v1/item' || pathname === '/api/v1/itens') && metodo === 'POST') {
       const operacao = 'cadastrar_item';
-      const rlStats = checarRateLimit(apiKeyHash, operacao);
+      const rlStats = await checarRateLimit(apiKeyHash, operacao, env);
 
       if (!rlStats.permitido) {
         return criarRespostaRateLimit(operacao, rlStats);
@@ -405,7 +442,7 @@ export default {
     // 3. ENDPOINT: /api/v1/recomendar (BUSCAR RECOMENDAÇÕES DE SERVIÇOS / PRODUTOS COM EVEROS MEMORY)
     if ((pathname === '/api/v1/recomendar' || pathname === '/api/v1/recomendacao') && (metodo === 'GET' || metodo === 'POST')) {
       const operacao = 'buscar_recomendacao';
-      const rlStats = checarRateLimit(apiKeyHash, operacao);
+      const rlStats = await checarRateLimit(apiKeyHash, operacao, env);
 
       if (!rlStats.permitido) {
         return criarRespostaRateLimit(operacao, rlStats);
@@ -461,7 +498,7 @@ export default {
     const corpoUrlRaw = url.searchParams.get('corpo-url');
     if (corpoUrlRaw) {
       const operacao = 'criar_necessidade';
-      const rlStats = checarRateLimit(apiKeyHash, operacao);
+      const rlStats = await checarRateLimit(apiKeyHash, operacao, env);
 
       if (!rlStats.permitido) {
         return criarRespostaRateLimit(operacao, rlStats);
