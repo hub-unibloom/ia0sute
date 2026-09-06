@@ -1,6 +1,7 @@
 ---
 import { decodificarPayloadUrl, codificarPayloadUrl } from '../../lib/payload';
 import { gerarApiKeyIa, calcularHashApiKey, registrarCopilotoSupabase, salvarOuAtualizarNecessidade, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../lib/supabase';
+import { chamarWorkerBinding } from '../../lib/workerBinding';
 
 export const prerender = false;
 
@@ -45,6 +46,20 @@ try {
       bairro: payloadDecodificado.bairro || null,
       payloadCompleto: payloadDecodificado
     });
+
+    try {
+      await chamarWorkerBinding(Astro.locals, '/api/v1/necessidade', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-ia-api-key': apiKeyCopiloto },
+        body: JSON.stringify({
+          id: idNecessidade,
+          descricao_necessidade: desc,
+          urgencia: payloadDecodificado.urgencia || 'media',
+          cidade: payloadDecodificado.cidade || null,
+          bairro: payloadDecodificado.bairro || null
+        })
+      });
+    } catch (_eWorker) {}
   }
 
   // Buscar estado atualizado do banco Supabase

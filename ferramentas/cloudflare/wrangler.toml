@@ -11,7 +11,10 @@ routes = [
 ENVIRONMENT = "production"
 SUPABASE_URL = "https://tcxhuryqrzidvrltjhiz.supabase.co"
 SUPABASE_ANON_KEY = "sb_publishable_Xz1PSjOLImkMDkF3waRw1g_EAl1DiZ1"
+EVEROS_BASE_URL = "https://api.evermind.ai"
+EVEROS_API_KEY = ""
 
 [observability.logs]
 enabled = true
 invocation_logs = true
+
