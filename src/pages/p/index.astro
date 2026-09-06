@@ -1,7 +1,6 @@
 ---
 import { decodificarPayloadUrl, codificarPayloadUrl } from '../../lib/payload';
 import { gerarApiKeyIa, calcularHashApiKey, registrarCopilotoSupabase, salvarOuAtualizarNecessidade, type ResultadoSalvarNecessidade } from '../../lib/supabase';
-import { chamarWorkerBinding, isWorkerBindingDisponivel } from '../../lib/workerBinding';
 
 export const prerender = false;
 
@@ -124,26 +123,6 @@ try {
       idNecessidadeGerada = resultadoDb.id;
       statusNecessidade = resultadoDb.status;
       isNovaNecessidade = resultadoDb.isNew;
-
-      // Sincronizar com EverOS Memory via Cloudflare Edge Service Binding (zero latency)
-      try {
-        await chamarWorkerBinding(Astro.locals, '/api/v1/necessidade', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-ia-api-key': apiKeyCopiloto
-          },
-          body: JSON.stringify({
-            id: idNecessidadeGerada,
-            descricao_necessidade: descNecessidade,
-            urgencia: payload?.urgencia || 'media',
-            cidade: payload?.cidade || null,
-            bairro: payload?.bairro || null
-          })
-        });
-      } catch (errWorker) {
-        console.warn('Sincronização com o worker via Service Binding em fallback local:', errWorker);
-      }
     }
   } else if (payload && !descNecessidade) {
     erros.push("CAMPO OBRIGATÓRIO AUSENTE: Envie o relato do seu usuário no campo 'descricao_necessidade'.");

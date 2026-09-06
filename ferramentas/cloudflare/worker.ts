@@ -551,34 +551,7 @@ export default {
       return fetch(new Request(request, { headers: modifiedHeaders }));
     }
 
-    // Health check e diagnóstico de Service Binding
-    if (pathname === '/health' || pathname === '/status' || (pathname === '/' && url.hostname === 'internal')) {
-      return new Response(JSON.stringify({
-        status: 'online',
-        worker: 'site-da-ia-worker',
-        ambiente: env.ENVIRONMENT || 'production',
-        binding_ready: true,
-        timestamp: new Date().toISOString()
-      }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*' }
-      });
-    }
-
-    // Trativa segura para chamadas internas via Service Binding sem match de rota
-    if (url.hostname === 'internal' || url.hostname === 'internal-worker') {
-      return new Response(JSON.stringify({
-        sucesso: false,
-        erro: 'rota_nao_encontrada',
-        mensagem: `A rota '${pathname}' não foi encontrada no Worker site-da-ia-worker.`
-      }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*' }
-      });
-    }
-
-    // Pass-through padrão para pública/Astro SSR
+    // Pass-through padrão para Astro SSR
     return fetch(request);
   }
 };
-
