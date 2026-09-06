@@ -1,0 +1,16 @@
+name = "gerador-contratos-sensacional"
+main = "worker.ts"
+compatibility_date = "2026-09-01"
+
+workers_dev = true
+
+r2_buckets = [
+  { binding = "BUCKET_CONTRATOS", bucket_name = "contratosensacionalshop" }
+]
+
+[vars]
+ENVIRONMENT = "production"
+
+[observability.logs]
+enabled = true
+invocation_logs = true

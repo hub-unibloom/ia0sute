@@ -9,11 +9,14 @@
     "build": "astro build",
     "preview": "astro preview",
     "deploy:site": "astro build && wrangler pages deploy dist --project-name=site-da-ia-page",
-    "deploy:worker": "wrangler deploy --config ferramentas/cloudflare/wrangler.toml"
+    "deploy:worker": "wrangler deploy --config ferramentas/cloudflare/wrangler.toml",
+    "deploy:worker-contrato": "wrangler deploy --config ferramentas/cloudflare-contrato/wrangler.toml"
   },
   "dependencies": {
     "@astrojs/cloudflare": "^12.0.0",
     "@supabase/supabase-js": "^2.48.0",
-    "astro": "^5.0.0"
+    "astro": "^5.0.0",
+    "docxtemplater": "^3.69.3",
+    "pizzip": "^3.2.0"
   }
 }
