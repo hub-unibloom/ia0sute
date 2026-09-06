@@ -1,11 +1,7 @@
-name = "site-da-ia-worker"
+name = "site-da-ia-worker1"
 main = "worker.ts"
 compatibility_date = "2026-09-01"
 
-# Configuração de rota para sobrepor ao Cloudflare Pages sem conflito de DNS
-routes = [
-  { pattern = "ai.sensacional.site/*", zone_name = "sensacional.site" }
-]
 
 [vars]
 ENVIRONMENT = "production"

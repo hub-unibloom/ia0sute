@@ -1,7 +1,10 @@
-name = "site-da-ia"
+name = "site-da-ia-page"
 compatibility_date = "2026-09-01"
 pages_build_output_dir = "./dist"
 
 [[services]]
 binding = "EVERMIND_WORKER"
-service = "site-da-ia-worker"
+service = "site-da-ia-worker1"
+
+
+
