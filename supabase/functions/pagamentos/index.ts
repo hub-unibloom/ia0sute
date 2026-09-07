@@ -209,36 +209,20 @@ serve(async (req) => {
           continue;
         }
 
-        // 2. Validação rigorosa do valor pago
+        // 2. Aceita o pagamento, independentemente se foi maior, menor ou exato, pois
+        // o cliente pode estar dividindo a conta ou pagando partes separadas.
         const valorPago = parseFloat(pix.valor);
-        const valorEsperado = parseFloat(pagamentoExistente.valor);
 
-        if (valorPago < valorEsperado) {
-          // Pagamento a menor: não libera a comanda! Apenas registra nos metadados.
-          await supabase
-            .from("pagamento")
-            .update({
-              metadados: {
-                alerta: "PAGAMENTO_INFERIOR",
-                valor_recebido: valorPago,
-                valor_esperado: valorEsperado,
-                endToEndId: pix.endToEndId
-              }
-            })
-            .eq("id", pagamentoExistente.id);
-            
-          resultados.push({ txid: pix.txid, erro: `Valor pago (${valorPago}) inferior ao esperado (${valorEsperado}). Comanda bloqueada.` });
-          continue;
-        }
-
-        // 3. Atualiza a tabela pagamento para PAGO (Valor correto)
+        // 3. Atualiza a tabela pagamento para PAGO, reajustando o valor para o que realmente foi pago
         const { error: errorPg } = await supabase
           .from("pagamento")
           .update({
             status: "pago",
+            valor: valorPago, // Garante que reflete o que entrou de fato
             pago_em: new Date().toISOString(),
             metadados: {
               valor_recebido: valorPago,
+              valor_esperado_original: pagamentoExistente.valor,
               endToEndId: pix.endToEndId,
               horarioPagamento: pix.horario,
               pagador: pix.pagador || null
@@ -247,14 +231,47 @@ serve(async (req) => {
           .eq("id", pagamentoExistente.id);
 
         if (!errorPg && pagamentoExistente.comanda_id) {
-          // Atualiza a comanda para ABERTA (Se estava aguardando_pagamento)
-          const { error: errorComanda } = await supabase
-            .from("comanda")
-            .update({ status: "aberta" })
-            .eq("id", pagamentoExistente.comanda_id)
-            .eq("status", "aguardando_pagamento");
+          // 4. Somar todos os pagamentos já concluídos dessa comanda
+          const { data: pagamentosComanda } = await supabase
+            .from("pagamento")
+            .select("valor")
+            .eq("comanda_id", pagamentoExistente.comanda_id)
+            .eq("status", "pago");
 
-          resultados.push({ txid: pix.txid, comanda: pagamentoExistente.comanda_id, comanda_atualizada: !errorComanda });
+          const totalPago = pagamentosComanda 
+            ? pagamentosComanda.reduce((acc, p) => acc + parseFloat(p.valor), 0)
+            : 0;
+
+          // 5. Busca o valor total da comanda
+          const { data: comanda } = await supabase
+            .from("comanda")
+            .select("valor_total, status")
+            .eq("id", pagamentoExistente.comanda_id)
+            .single();
+
+          if (comanda && (comanda.status === "aguardando_pagamento" || comanda.status === "pagamento_iniciado")) {
+            const valorTotalComanda = parseFloat(comanda.valor_total || "0");
+            
+            if (totalPago >= valorTotalComanda) {
+              // Se a soma de todas as frações pagas atingir o total, libera a comanda!
+              const { error: errorComanda } = await supabase
+                .from("comanda")
+                .update({ status: "aberta" })
+                .eq("id", pagamentoExistente.comanda_id);
+              
+              resultados.push({ txid: pix.txid, comanda: pagamentoExistente.comanda_id, acao: "Comanda totalmente paga e ABERTA.", comanda_atualizada: !errorComanda });
+            } else {
+              // Atualiza o status para pagamento_iniciado caso falte dinheiro (pagamento parcial)
+              const { error: errorComanda } = await supabase
+                .from("comanda")
+                .update({ status: "pagamento_iniciado" })
+                .eq("id", pagamentoExistente.comanda_id);
+
+               resultados.push({ txid: pix.txid, comanda: pagamentoExistente.comanda_id, acao: `Pagamento parcial aceito. Total pago: ${totalPago}/${valorTotalComanda}. Comanda atualizada para pagamento_iniciado.`, comanda_atualizada: !errorComanda });
+            }
+          } else {
+            resultados.push({ txid: pix.txid, comanda: pagamentoExistente.comanda_id, acao: "Pagamento computado, mas comanda não estava aguardando pagamento ou sem valor total definido." });
+          }
         } else {
           resultados.push({ txid: pix.txid, erro: "Erro ao atualizar status do pagamento para pago." });
         }

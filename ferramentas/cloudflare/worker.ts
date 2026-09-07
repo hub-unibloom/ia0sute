@@ -19,6 +19,7 @@ const RATE_LIMIT_REGRAS: Record<string, number> = {
   'cadastrar_item': 15,
   'cadastrar_habilidade': 15,
   'consultar_memoria': 15,
+  'consultar_pagamento': 20,  // Consultas de status de pagamento e contrato
   'obter_perfil': 15,
   'buscar_recomendacao': 30,
   'recomendar_produtos': 30,
@@ -494,7 +495,204 @@ export default {
       });
     }
 
-    // 4. SUPORTE A LEGADO / CORPO-URL (QUERY PARAMETER DE TELEMETRIA)
+    // 4. ENDPOINT: /api/v1/pagamento/status (CONSULTAR STATUS DE PAGAMENTO)
+    // Aceita GET com ?txid=... ou ?pagamento_id=... para IAs externas
+    // Aceita POST com corpo JSON ou base64 via ?corpo-url=...
+    if (pathname === '/api/v1/pagamento/status') {
+      const operacao = 'consultar_pagamento';
+      const rlStats = await checarRateLimit(apiKeyHash, operacao, env);
+      if (!rlStats.permitido) return criarRespostaRateLimit(operacao, rlStats);
+
+      let txid: string | null = null;
+      let pagamentoId: string | null = null;
+      let comandaId: string | null = null;
+
+      if (metodo === 'GET') {
+        txid = url.searchParams.get('txid');
+        pagamentoId = url.searchParams.get('pagamento_id');
+        comandaId = url.searchParams.get('comanda_id');
+        // Suporte ao padrão base64 do worker para IAs que passam ?corpo-url=
+        const corpoB64 = url.searchParams.get('corpo-url');
+        if (corpoB64) {
+          try {
+            const decoded = JSON.parse(decodeBase64Utf8(corpoB64));
+            txid = decoded.txid || txid;
+            pagamentoId = decoded.pagamento_id || pagamentoId;
+            comandaId = decoded.comanda_id || comandaId;
+          } catch (_) {}
+        }
+      } else if (metodo === 'POST') {
+        try {
+          const body: any = await request.json();
+          txid = body.txid || null;
+          pagamentoId = body.pagamento_id || null;
+          comandaId = body.comanda_id || null;
+        } catch (_) {}
+      }
+
+      if (!txid && !pagamentoId && !comandaId) {
+        return new Response(JSON.stringify({ sucesso: false, erro: 'Informe txid, pagamento_id ou comanda_id.' }), { status: 400, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
+      }
+
+      let queryUrl = `${SUPABASE_URL}/rest/v1/pagamento?select=id,status,valor,pago_em,gateway,gateway_pagamento_id,metadados,comanda_id,metodo,moeda&limit=10`;
+      if (txid) queryUrl += `&gateway_pagamento_id=eq.${encodeURIComponent(txid)}`;
+      if (pagamentoId) queryUrl += `&id=eq.${encodeURIComponent(pagamentoId)}`;
+      if (comandaId) queryUrl += `&comanda_id=eq.${encodeURIComponent(comandaId)}`;
+
+      let pagamentos: any[] = [];
+      try {
+        const resp = await fetch(queryUrl, { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` } });
+        if (resp.ok) pagamentos = await resp.json();
+      } catch (err) { console.error('[Worker] Erro ao consultar pagamento:', err); }
+
+      const totalPago = pagamentos.filter(p => p.status === 'pago').reduce((acc, p) => acc + parseFloat(p.valor), 0);
+
+      return new Response(JSON.stringify({
+        sucesso: true,
+        pagamentos,
+        total_pago: totalPago.toFixed(2),
+        mensagem_ia: pagamentos.length === 0
+          ? 'Nenhum pagamento encontrado com os critérios informados.'
+          : `Encontrado(s) ${pagamentos.length} pagamento(s). Total pago: R$ ${totalPago.toFixed(2)}.`
+      }), { status: 200, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*' } });
+    }
+
+    // 5. ENDPOINT: /api/v1/pagamento/pix-key (CONSULTAR CHAVE PIX DO RECEBEDOR)
+    // Rota simples de leitura para IAs obterem a chave PIX e gerarem ou verificarem cobranças
+    if (pathname === '/api/v1/pagamento/pix-key' && metodo === 'GET') {
+      const operacao = 'consultar_pagamento';
+      const rlStats = await checarRateLimit(apiKeyHash, operacao, env);
+      if (!rlStats.permitido) return criarRespostaRateLimit(operacao, rlStats);
+
+      // A chave PIX fica em env.C6_PIX_KEY mas neste worker não temos acesso.
+      // Busca do Supabase se houver uma tabela de config, senão retorna o dado fixo.
+      const pixKey = env.C6_PIX_KEY || null;
+
+      return new Response(JSON.stringify({
+        sucesso: true,
+        chave_pix: pixKey,
+        gateway: 'c6bank',
+        moeda: 'BRL',
+        mensagem_ia: pixKey
+          ? `A chave PIX de recebimento é: ${pixKey}. Use para solicitar pagamentos.`
+          : 'Chave PIX não configurada neste ambiente. Contate o administrador.'
+      }), { status: 200, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*' } });
+    }
+
+    // 6. ENDPOINT: /api/v1/contrato/link (GERAR/CONSULTAR LINK DE CONTRATO)
+    // Aceita GET com ?contrato_id=... para IAs consultarem o link de download do contrato
+    if (pathname === '/api/v1/contrato/link' && (metodo === 'GET' || metodo === 'POST')) {
+      const operacao = 'consultar_memoria';
+      const rlStats = await checarRateLimit(apiKeyHash, operacao, env);
+      if (!rlStats.permitido) return criarRespostaRateLimit(operacao, rlStats);
+
+      let contratoId: string | null = null;
+      let txid: string | null = null;
+
+      if (metodo === 'GET') {
+        contratoId = url.searchParams.get('contrato_id');
+        txid = url.searchParams.get('txid');
+        const corpoB64 = url.searchParams.get('corpo-url');
+        if (corpoB64) {
+          try {
+            const decoded = JSON.parse(decodeBase64Utf8(corpoB64));
+            contratoId = decoded.contrato_id || contratoId;
+            txid = decoded.txid || txid;
+          } catch (_) {}
+        }
+      } else {
+        try {
+          const body: any = await request.json();
+          contratoId = body.contrato_id || null;
+          txid = body.txid || null;
+        } catch (_) {}
+      }
+
+      if (!contratoId && !txid) {
+        return new Response(JSON.stringify({ sucesso: false, erro: 'Informe contrato_id ou txid.' }), { status: 400, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
+      }
+
+      // Consulta o pagamento via txid para obter comanda/contrato vinculado
+      let contratoInfo: any = null;
+      try {
+        let queryUrl = `${SUPABASE_URL}/rest/v1/pagamento?select=id,status,metadados,comanda_id&limit=1`;
+        if (txid) queryUrl += `&gateway_pagamento_id=eq.${encodeURIComponent(txid)}`;
+        if (contratoId) queryUrl += `&metadados->>contrato_id=eq.${encodeURIComponent(contratoId)}`;
+
+        const resp = await fetch(queryUrl, { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` } });
+        if (resp.ok) {
+          const rows: any[] = await resp.json();
+          contratoInfo = rows[0] || null;
+        }
+      } catch (err) { console.error('[Worker] Erro ao consultar contrato:', err); }
+
+      const linkContrato = contratoInfo?.metadados?.location || contratoInfo?.metadados?.link_contrato || null;
+      const statusPagamento = contratoInfo?.status || 'desconhecido';
+
+      return new Response(JSON.stringify({
+        sucesso: true,
+        contrato_id: contratoId || contratoInfo?.metadados?.contrato_id,
+        txid: txid,
+        status_pagamento: statusPagamento,
+        link_contrato: linkContrato,
+        mensagem_ia: linkContrato
+          ? `O link do contrato está disponível: ${linkContrato}. Status do pagamento associado: ${statusPagamento}.`
+          : 'Contrato não localizado ou link ainda não disponível. Verifique o contrato_id ou txid informado.'
+      }), { status: 200, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*' } });
+    }
+
+    // 7. ENDPOINT: /api/v1/pagamento/solicitar-pix (SOLICITAR NOVO PIX VIA SUPABASE EDGE FUNCTION)
+    // Para IAs que precisam disparar uma cobrança nova em nome de uma comanda
+    // Aceita GET com corpo-url=base64 para manter compatibilidade com IAs sem POST
+    if (pathname === '/api/v1/pagamento/solicitar-pix') {
+      const operacao = 'criar_necessidade'; // deliberadamente mais restrito
+      const rlStats = await checarRateLimit(apiKeyHash, operacao, env);
+      if (!rlStats.permitido) return criarRespostaRateLimit(operacao, rlStats);
+
+      let payload: any = {};
+
+      if (metodo === 'GET') {
+        const corpoB64 = url.searchParams.get('corpo-url');
+        if (!corpoB64) {
+          return new Response(JSON.stringify({ sucesso: false, erro: 'Para GET, informe o parâmetro corpo-url com o payload em base64 (JSON: valor, devedor, comanda_id).' }), { status: 400, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
+        }
+        try {
+          payload = JSON.parse(decodeBase64Utf8(corpoB64));
+        } catch (_) {
+          return new Response(JSON.stringify({ sucesso: false, erro: 'Falha ao decodificar corpo-url. Certifique-se que é base64 válido de um JSON.' }), { status: 400, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
+        }
+      } else if (metodo === 'POST') {
+        try { payload = await request.json(); } catch (_) {}
+      }
+
+      // Encaminha para a Supabase Edge Function de pagamentos
+      const supabaseEdgeUrl = `${SUPABASE_URL}/functions/v1/pagamentos/cob`;
+      let pixResposta: any = null;
+      try {
+        const resp = await fetch(supabaseEdgeUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+          },
+          body: JSON.stringify(payload)
+        });
+        pixResposta = await resp.json();
+      } catch (err) {
+        console.error('[Worker] Erro ao solicitar PIX via Edge Function:', err);
+        return new Response(JSON.stringify({ sucesso: false, erro: 'Falha ao comunicar com o microserviço de pagamentos.' }), { status: 502, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
+      }
+
+      return new Response(JSON.stringify({
+        sucesso: pixResposta?.success || false,
+        ...pixResposta,
+        mensagem_ia: pixResposta?.success
+          ? `PIX gerado com sucesso! txid: ${pixResposta.txid}. Copie e Cole: ${pixResposta.pix_emv || pixResposta.location}`
+          : `Falha ao gerar PIX: ${pixResposta?.error || 'Erro desconhecido.'}`
+      }), { status: pixResposta?.success ? 201 : 502, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*' } });
+    }
+
+    // 8. SUPORTE A LEGADO / CORPO-URL (QUERY PARAMETER DE TELEMETRIA)
     const corpoUrlRaw = url.searchParams.get('corpo-url');
     if (corpoUrlRaw) {
       const operacao = 'criar_necessidade';
