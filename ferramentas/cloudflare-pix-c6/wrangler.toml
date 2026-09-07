@@ -1,0 +1,23 @@
+name = "gerador-pix-c6"
+main = "worker.ts"
+compatibility_date = "2024-03-01"
+
+# Para usar o ambiente de Produção do C6 Bank, você fará o upload do Certificado MTLS
+# no painel da Cloudflare. A Cloudflare irá fornecer um Certificate ID.
+# Mapearemos esse ID para a variável MTLS_FETCHER aqui.
+# documentação: https://developers.cloudflare.com/workers/runtime-apis/mtls/
+
+[mtls_certificates]
+C6_MTLS = "certificate_id_aqui"
+
+[vars]
+# Variáveis de ambiente (Configure via Dashboard da Cloudflare - Seção Secrets)
+# C6_CLIENT_ID = "seu_client_id"
+# C6_CLIENT_SECRET = "seu_client_secret"
+# C6_PIX_KEY = "sua_chave_pix"
+# C6_ENV = "sandbox" ou "production"
+C6_ENV = "sandbox"
+
+# Permite acesso ao Banco de Dados Supabase diretamente da Edge para atualizar a tabela `pagamento`
+# SUPABASE_URL = "..."
+# SUPABASE_SERVICE_ROLE = "..."

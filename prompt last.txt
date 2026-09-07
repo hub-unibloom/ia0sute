@@ -1,23 +1,1142 @@
-Módulo de Geração de Contratos (Engine de Contrato & Cobrança):
+E eu mudaria uma coisa importante na sua concepção: **não pense primeiro em “modelos de contrato”**. Pense em um **sistema de composição contratual**.
 
-Tabela ou serviço que transforme a necessidade + profissional selecionado em um Contrato de Prestação de Serviços.
-Definição de cláusulas dinâmicas (valor, prazos, escopo, regras de vistoria, garantia de custódia).
-Emissão da chave Pix dinâmica vinculada àquele contrato.
+Um contrato seria o resultado da combinação de:
 
+**Partes + contexto + módulos jurídicos + regras condicionais + anexos + assinaturas.**
 
+Isso permite que o mesmo motor gere um contrato de prestação de serviços simples, um contrato de desenvolvimento de software, um NDA isolado, um contrato com SLA, um contrato de parceria ou uma combinação deles.
 
-Módulo de Cadastro de Funções / Onboarding do Prestador:
-Interface visual e amigável para o profissional se cadastrar na plataforma.
-Seleção de funções/profissões, cadastro de habilidades com modelos de preço (fixo, por hora/m², faixa de preço, sob orçamento).
-Configuração de área de atendimento (cidade/bairro/raio) e disponibilidade de agenda.
+Listas profissionais de revisão contratual seguem justamente essa lógica de cobrir partes, escopo, obrigações, pagamento, prazo, risco, garantias, indenização, responsabilidade, propriedade intelectual, confidencialidade, solução de conflitos e cláusulas gerais. ([Practical Law][1])
 
+## 1. Primeiro: o mapa-mãe do contrato
 
+Eu criaria estas grandes áreas no seu gerador:
 
-Sistema de Avaliação (Rating & Review): Sistema robusto para que usuários e prestadores avaliem uns aos outros ao término de cada serviço. Deve calcular médias de reputação, exibir estrelas, comentários e pode ser usado para criar “selos de qualidade” no perfil de cada profissional.
+```text
+CONTRATO
+│
+├── 01. IDENTIFICAÇÃO
+├── 02. CONTEXTO / PREÂMBULO
+├── 03. DEFINIÇÕES
+├── 04. OBJETO
+├── 05. ESCOPO
+├── 06. OBRIGAÇÕES DAS PARTES
+├── 07. ENTREGÁVEIS
+├── 08. ACEITE / DEFINITION OF DONE
+├── 09. PRAZOS / CRONOGRAMA
+├── 10. PREÇO / REMUNERAÇÃO
+├── 11. PAGAMENTO
+├── 12. REAJUSTE / ALTERAÇÃO DE PREÇO
+├── 13. IMPOSTOS / DESPESAS
+├── 14. GARANTIAS
+├── 15. REPRESENTAÇÕES E DECLARAÇÕES
+├── 16. RESPONSABILIDADES
+├── 17. LIMITAÇÃO DE RESPONSABILIDADE
+├── 18. INDENIZAÇÃO
+├── 19. SEGUROS
+├── 20. CONFIDENCIALIDADE / NDA
+├── 21. PROTEÇÃO DE DADOS
+├── 22. PROPRIEDADE INTELECTUAL
+├── 23. LICENÇAS / USO
+├── 24. NÃO CONCORRÊNCIA
+├── 25. NÃO ALICIAMENTO
+├── 26. EXCLUSIVIDADE
+├── 27. SUBCONTRATAÇÃO
+├── 28. AUDITORIA / FISCALIZAÇÃO
+├── 29. SEGURANÇA / COMPLIANCE
+├── 30. SLA / NÍVEIS DE SERVIÇO
+├── 31. PENALIDADES
+├── 32. MULTAS
+├── 33. CRÉDITOS / RETENÇÕES / CLawbacks
+├── 34. CHANGE REQUEST / CHANGE CONTROL
+├── 35. SUSPENSÃO
+├── 36. RESCISÃO / TERMINAÇÃO
+├── 37. EFEITOS DA TERMINAÇÃO
+├── 38. TRANSIÇÃO / HANDOVER
+├── 39. FORÇA MAIOR
+├── 40. DISPUTAS
+├── 41. LEI APLICÁVEL
+├── 42. FORO / ARBITRAGEM / MEDIAÇÃO
+├── 43. NOTIFICAÇÕES
+├── 44. CESSÃO
+├── 45. ALTERAÇÕES CONTRATUAIS
+├── 46. RENÚNCIA
+├── 47. SEVERABILIDADE
+├── 48. INTEGRALIDADE DO ACORDO
+├── 49. ORDEM DE PRECEDÊNCIA
+├── 50. CONTRATO ELETRÔNICO / ASSINATURAS
+├── 51. TESTEMUNHAS
+├── 52. ANEXOS
+└── 53. CAMPOS ESPECIAIS / DISPOSIÇÕES ADICIONAIS
+```
 
+Essa estrutura é muito mais poderosa do que criar “Contrato de Serviço”, “Contrato de NDA”, “Contrato de Software” etc. como documentos independentes.
 
-- sistema de notification
-Manter o usuario ligado das atualziaçẽos, enviamos email e futuramente whatsapp.
+---
 
-- sistema de assinatura de contrato
+# 2. IDENTIFICAÇÃO DAS PARTES
 
+Essa parte precisa ser **dinâmica de verdade**.
+
+### Pessoa física
+
+```text
+nome
+cpf (cálculação matematica de formato)
+rg
+nacionalidade
+estado_civil
+endereço
+email/telefone 
+```
+
+### Pessoa jurídica
+
+```text
+razao_social
+nome_fantasia
+cnpj (cálculação matematica de formato)
+inscricao_estadual
+endereco
+email
+telefone
+representante
+cargo_representante
+cpf_representante
+poderes_de_representacao
+```
+
+### Outros
+
+Seu motor deveria permitir:
+
+```text
+partes[]
+  tipo:
+    pessoa_fisica
+    pessoa_juridica
+    ente_publico
+    grupo_economico
+    outra_entidade
+```
+
+E, principalmente:
+
+```text
+papel_da_parte
+```
+
+Porque não existe necessariamente só:
+
+> CONTRATANTE + CONTRATADO
+
+Pode ser:
+
+```text
+contratante
+contratada
+cliente
+fornecedor
+prestador
+comprador
+vendedor
+licenciante
+licenciado
+cedente
+cessionário
+empregador
+empregado
+investidor
+investida
+franqueador
+franqueado
+tomador
+segurado
+seguradora
+fiador
+garantidor
+interveniente_anuente
+```
+
+Esse detalhe vai fazer uma diferença absurda no gerador.
+
+---
+
+# 3. PREÂMBULO / RECITAIS
+
+É aquela parte:
+
+> “CONSIDERANDO QUE...”
+
+Você pode tornar isso opcional.
+
+Campos:
+
+```text
+possui_preambulo
+contexto_negocio
+objetivo_comercial
+motivacao
+premissas
+considerandos[]
+```
+
+Exemplo de lógica:
+
+```text
+[ ] Incluir considerandos
+```
+
+Se marcado:
+
+```text
+Quem solicita?
+Qual contexto?
+Qual relacionamento prévio?
+Qual objetivo?
+```
+
+O motor transforma essas respostas em recitais.
+
+---
+
+# 4. DEFINIÇÕES
+
+Isso deveria ser uma **estrutura própria**, não apenas texto.
+
+Exemplo:
+
+```text
+definicoes[]
+{
+    termo: "Informações Confidenciais",
+    definicao: "...",
+    aplicacao: ["NDA", "PI", "Segurança"]
+}
+```
+
+Também:
+
+```text
+"Dia Útil"
+"Entrega"
+"Serviço"
+"Produto"
+"Propriedade Intelectual"
+"Dados Pessoais"
+"Incidente"
+"Materiais"
+"Preço"
+"Prazo"
+"Território"
+```
+
+E o gerador pode detectar automaticamente os termos definidos e manter consistência.
+
+---
+
+# 5. OBJETO
+
+Aqui você precisa separar:
+
+### Objeto geral
+
+```text
+descricao
+finalidade
+resultado_esperado
+```
+
+### Escopo
+
+```text
+escopo_incluso[]
+escopo_excluido[]
+```
+
+Isso é extremamente importante para evitar aquele clássico problema:
+
+> “Mas eu achei que isso estava incluído.”
+
+---
+
+# 6. OBRIGAÇÕES
+
+Aqui eu faria um **bloco repetível**.
+
+```text
+obrigacoes[]
+{
+    parte: "contratada",
+    obrigacao: "...",
+    prazo: "...",
+    condicao: "...",
+    evidencia: "...",
+    consequencia_descumprimento: "..."
+}
+```
+
+Assim você consegue literalmente adicionar:
+
+> * Nova obrigação
+
+---
+
+# 7. ENTREGÁVEIS
+
+Aqui começa uma parte muito interessante para o seu gerador.
+
+```text
+entregaveis[]
+{
+    nome
+    descricao
+    quantidade
+    formato
+    prazo
+    criterio_aceite
+    responsavel
+    dependencia
+    evidencia
+}
+```
+
+E então:
+
+### Definition of Done
+
+Eu **não colocaria isso dentro de “garantias”**.
+
+Criaria módulo próprio:
+
+```text
+ACEITE / DEFINITION OF DONE
+```
+
+Com:
+
+```text
+criterios_de_conclusao[]
+criterios_de_aceite[]
+testes[]
+documentacao_necessaria[]
+validacao_cliente
+prazo_para_aceite
+aceite_tacito
+rejeicao_motivada
+prazo_para_correcao
+numero_de_ciclos_de_correcao
+```
+
+Isso é especialmente poderoso para software, marketing, construção, design, consultoria, desenvolvimento etc.
+
+---
+
+# 8. MÓDULO FINANCEIRO
+
+Não faça apenas:
+
+> valor + vencimento.
+
+Faça:
+
+```text
+modelo_de_precificacao
+valor
+moeda
+periodicidade
+quantidade
+unidade
+condicao_pagamento
+entrada
+parcelamento
+marcos_pagamento[]
+```
+
+### Métodos
+
+```text
+valor_fixo
+hora
+diaria
+mensal
+por_entrega
+por_unidade
+por_percentual
+comissao
+success_fee
+milestone
+retainer
+uso_consumo
+hibrido
+```
+
+### Atraso
+
+```text
+multa
+juros
+correcao_monetaria
+suspensao_por_inadimplencia
+vencimento_antecipado
+```
+
+---
+
+# 9. CHANGE REQUEST / CHANGE CONTROL
+
+Esse módulo é **muito importante** e muita gente esquece.
+
+Quando o cliente pede:
+
+> “Ah, consegue fazer mais uma coisa?”
+
+O que acontece?
+
+Seu contrato deveria saber responder:
+
+```text
+quem pode solicitar alteração?
+como solicita?
+quem aprova?
+há impacto financeiro?
+há impacto no prazo?
+precisa de aditivo?
+qual evidência da aprovação?
+```
+
+Estrutura:
+
+```text
+alteracoes_escopo
+{
+    procedimento
+    autorizadores
+    impacto_preco
+    impacto_prazo
+    formalizacao
+}
+```
+
+Isso é essencial em contratos profissionais.
+
+---
+
+# 10. GARANTIAS
+
+Aqui vale separar **garantias de execução** de outras coisas.
+
+```text
+garantia_tipo
+periodo
+inicio
+cobertura
+exclusoes
+procedimento_de_reclamacao
+prazo_correcao
+substituicao
+reparo
+reembolso
+```
+
+Exemplos:
+
+```text
+garantia_produto
+garantia_servico
+garantia_entrega
+garantia_tecnica
+garantia_de_performance
+garantia_de_disponibilidade
+garantia_de_resultado
+```
+
+---
+
+# 11. REPRESENTAÇÕES E DECLARAÇÕES
+
+Esse módulo deve ser separado de garantias.
+
+Exemplo:
+
+```text
+cada_parte_declara_que:
+
+possui_capacidade
+possui_autorizacao
+nao_viola_outro_contrato
+informacoes_fornecidas_sao_verdadeiras
+possui_direitos_necessarios
+cumprira_lei
+```
+
+Representations & Warranties são uma parte importante da alocação de risco contratual. ([Mehok Law, PC][2])
+
+---
+
+# 12. NDA / CONFIDENCIALIDADE
+
+Aqui eu faria um **módulo próprio**, exatamente como você imaginou.
+
+Não simplesmente:
+
+> [ ] NDA
+
+Mas:
+
+```text
+CONFIDENCIALIDADE
+│
+├── natureza
+├── definição de informação confidencial
+├── informações excluídas
+├── obrigação de sigilo
+├── finalidade permitida
+├── pessoas autorizadas
+├── necessidade de divulgação
+├── divulgação compulsória por lei
+├── segurança
+├── incidentes
+├── devolução
+├── destruição
+├── comprovação de destruição
+├── prazo de confidencialidade
+├── sobrevivência após término
+├── medidas judiciais
+└── tratamento de informação de terceiros
+```
+
+E:
+
+```text
+tipo_nda
+
+unilateral
+mutual
+multilateral
+```
+
+Isso permite gerar tanto uma cláusula de confidencialidade quanto um NDA completo.
+
+---
+
+# 13. PROPRIEDADE INTELECTUAL
+
+Outro módulo que merece vida própria:
+
+```text
+IP
+│
+├── propriedade_preexistente
+├── propriedade_criada
+├── titularidade
+├── cessão
+├── licença
+├── licença_exclusiva
+├── licença_nao_exclusiva
+├── territorio
+├── prazo
+├── sublicenciamento
+├── codigo_fonte
+├── materiais_editaveis
+├── know_how
+├── marcas
+├── patentes
+├── direitos_autorais
+├── open_source
+└── portfólio / divulgação
+```
+
+Especialmente para software, design e consultoria, a definição explícita da propriedade intelectual criada durante a relação é crítica. ([Associação Americana de Advogados][3])
+
+---
+
+# 14. LGPD / PROTEÇÃO DE DADOS
+
+Para Brasil, eu criaria um módulo separado:
+
+```text
+papel_lgpd
+controlador
+operador
+controladores_independentes
+```
+
+Depois:
+
+```text
+dados_tratados
+finalidade
+base_juridica
+retencao
+suboperadores
+transferencia_internacional
+seguranca
+incidente
+comunicacao
+atendimento_direitos
+eliminacao
+auditoria
+```
+
+Isso também permite contratos com diferentes níveis de profundidade.
+
+---
+
+# 15. SLA
+
+Outro módulo independente:
+
+```text
+SLA
+│
+├── disponibilidade
+├── horario_atendimento
+├── tempo_resposta
+├── tempo_resolucao
+├── severidade
+├── prioridade
+├── janela_manutencao
+├── monitoramento
+├── creditos
+├── penalidades
+└── exclusoes
+```
+
+Por exemplo:
+
+```text
+P1 → resposta em 30 min
+P2 → resposta em 2 h
+P3 → resposta em 1 dia útil
+```
+
+---
+
+# 16. RESPONSABILIDADE
+
+Aqui você precisa separar três conceitos.
+
+### Responsabilidade
+
+Quem responde pelo quê.
+
+### Limitação
+
+Até quanto responde.
+
+### Indenização
+
+Quando uma parte deve ressarcir outra.
+
+Estrutura:
+
+```text
+RESPONSABILIDADE
+├── responsabilidades_gerais
+├── danos_diretos
+├── danos_indiretos
+├── lucros_cessantes
+├── perda_de_dados
+└── responsabilidades_especificas
+```
+
+### Limitação
+
+```text
+limite
+base_do_limite
+periodo_calculo
+moeda
+excecoes
+```
+
+### Indenização
+
+```text
+eventos_indenizaveis[]
+procedimento
+notificacao
+defesa
+controle_da_defesa
+acordo
+custos
+```
+
+Limitação de responsabilidade, indenização, seguros e força maior são normalmente tratados como um conjunto de alocação de risco. ([Practical Law][4])
+
+---
+
+# 17. SEGUROS
+
+Opcional:
+
+```text
+seguro[]
+{
+    tipo
+    cobertura_minima
+    segurado
+    certificado
+    vigencia
+    franquia
+}
+```
+
+Possibilidades:
+
+```text
+responsabilidade_civil
+profissional
+produto
+cyber
+trabalhista
+patrimonial
+```
+
+---
+
+# 18. PENALIDADES
+
+Outro bloco:
+
+```text
+penalidades[]
+{
+    evento
+    tipo
+    valor
+    percentual
+    limite
+    cumulativo
+    substitutivo
+}
+```
+
+Tipos:
+
+```text
+multa
+multa_diaria
+credito
+desconto
+indenizacao
+rescisao
+```
+
+---
+
+# 19. RESCISÃO / TERMINAÇÃO
+
+Não faça simplesmente:
+
+> [ ] Permitir rescisão.
+
+Faça:
+
+```text
+terminacao
+│
+├── termino_natural
+├── renovacao
+├── terminacao_por_conveniencia
+├── terminacao_por_causa
+├── inadimplemento
+├── prazo_de_cura
+├── insolvencia
+├── falencia
+├── ilegalidade
+├── mudanca_de_controle
+├── forca_maior
+└── outros
+```
+
+E depois:
+
+### Efeitos
+
+```text
+pagamentos_pendentes
+devolucao_materiais
+devolucao_dados
+destruicao_informacoes
+licencas
+transicao
+entregaveis_pendentes
+confidencialidade
+IP
+auditoria
+sobrevivencia
+```
+
+Essa parte de “o que acontece depois que o contrato acaba” é particularmente importante. ([Mehok Law, PC][2])
+
+---
+
+# 20. DISPUTAS
+
+O gerador deveria perguntar:
+
+```text
+metodo_de_resolucao
+```
+
+Opções:
+
+```text
+negociacao
+mediacao
+arbitragem
+judicial
+negociacao -> mediacao -> arbitragem
+negociacao -> arbitragem
+```
+
+Depois:
+
+```text
+jurisdicao
+foro
+cidade
+camara_arbitral
+numero_arbitros
+idioma
+```
+
+---
+
+# 21. CLÁUSULAS “BOILERPLATE”
+
+Você vai querer uma biblioteca própria.
+
+```text
+cessao
+subcontratacao
+forca_maior
+severabilidade
+renuncia
+alteracao
+integralidade
+ordem_precedencia
+relacao_entre_partes
+independencia
+ausencia_sociedade
+notificacoes
+publicidade
+idioma
+contrapartes
+assinatura_eletronica
+assinatura_digital
+sobrevivencia
+```
+
+São justamente essas cláusulas aparentemente pequenas que fecham muitos dos “buracos” do documento. ([spotdraft.com][5])
+
+---
+
+# 22. ANEXOS
+
+Aqui está outra decisão arquitetural importante.
+
+Não coloque tudo no corpo do contrato.
+
+Crie:
+
+```text
+ANEXOS[]
+{
+    tipo
+    titulo
+    conteudo
+    obrigatorio
+    ordem
+}
+```
+
+Exemplos:
+
+```text
+Anexo I – Escopo Técnico
+Anexo II – SLA
+Anexo III – Tabela de Preços
+Anexo IV – Cronograma
+Anexo V – Política de Segurança
+Anexo VI – DPA
+Anexo VII – Definition of Done
+Anexo VIII – Especificação Técnica
+```
+
+---
+
+# 23. A verdadeira sacada: perguntas condicionais
+
+Aqui é onde seu gerador começa a ficar muito bom.
+
+Em vez de mostrar 300 campos:
+
+```text
+Você presta um serviço?
+
+SIM
+```
+
+Então:
+
+```text
+Existe entrega?
+→ mostrar Entregáveis
+
+Existe aceite?
+→ mostrar Acceptance
+
+Existe software?
+→ mostrar IP + Código Fonte + Open Source
+
+Existe tratamento de dados?
+→ mostrar LGPD/DPA
+
+Existe informação confidencial?
+→ mostrar NDA
+
+Existe pagamento recorrente?
+→ mostrar recorrência/reajuste
+
+Existe risco operacional?
+→ mostrar SLA + penalidades
+
+Existe alteração frequente de escopo?
+→ mostrar Change Control
+```
+
+Ou seja:
+
+**o usuário não escolhe cláusulas; ele descreve a relação jurídica e o sistema descobre quais módulos são necessários.**
+
+---
+
+# 24. Eu também criaria “perfis de contrato”
+
+Não como documentos fechados, mas como **presets**.
+
+```text
+Prestação de Serviços
+Compra e Venda
+Consultoria
+Desenvolvimento de Software
+SaaS
+NDA
+Licenciamento
+Parceria Comercial
+Distribuição
+Franquia
+Construção / Obra
+Manutenção
+Marketing
+Influenciador
+Freelancer
+Locação
+Comodato
+Empréstimo
+Mútuo
+Investimento
+Societário
+Trabalho
+Representação Comercial
+Fornecimento
+Logística
+```
+
+Cada preset simplesmente ativa um conjunto inicial de módulos.
+
+---
+
+# 25. E o banco de dados deveria pensar em módulos, não documentos
+
+Algo conceitualmente assim:
+
+```json
+{
+  "contract": {
+    "type": "prestacao_servicos",
+    "jurisdiction": "BR",
+    "language": "pt-BR"
+  },
+
+  "parties": [],
+
+  "modules": {
+    "preamble": {},
+    "definitions": {},
+    "scope": {},
+    "obligations": [],
+    "deliverables": [],
+    "acceptance": {},
+    "pricing": {},
+    "payment": {},
+    "adjustment": {},
+    "warranties": {},
+    "representations": {},
+    "confidentiality": {},
+    "data_protection": {},
+    "intellectual_property": {},
+    "sla": {},
+    "change_control": {},
+    "liability": {},
+    "indemnification": {},
+    "insurance": {},
+    "penalties": {},
+    "termination": {},
+    "disputes": {},
+    "boilerplate": {},
+    "annexes": []
+  },
+
+  "signatures": []
+}
+```
+
+Isso transforma seu produto de um **“gerador de contratos”** em algo muito mais interessante:
+
+> **um compilador de contratos.**
+
+O usuário fornece fatos e escolhas → o sistema ativa módulos → os módulos possuem dependências → as cláusulas são montadas → referências cruzadas são resolvidas → o documento final é produzido.
+
+---
+
+# 26. E eu adicionaria uma camada que quase ninguém pensa
+
+Cada cláusula deveria possuir **metadados jurídicos**, não apenas texto.
+
+Por exemplo:
+
+```json
+{
+  "clause": "confidentiality",
+  "required_when": [
+    "confidential_information = true"
+  ],
+  "depends_on": [
+    "parties",
+    "term"
+  ],
+  "conflicts_with": [],
+  "references": [
+    "termination",
+    "data_protection"
+  ],
+  "survives_termination": true,
+  "risk_level": "high",
+  "negotiable": true,
+  "variants": [
+    "unilateral",
+    "mutual",
+    "multilateral"
+  ]
+}
+```
+
+Aí você consegue fazer algo fantástico:
+
+**o gerador sabe que uma cláusula depende de outra.**
+
+Por exemplo:
+
+```text
+NDA
+ ↓
+Confidencialidade
+ ↓
+Definição de Informação Confidencial
+ ↓
+Exceções
+ ↓
+Prazo
+ ↓
+Sobrevivência
+ ↓
+Efeitos da Terminação
+```
+
+Não é simplesmente juntar parágrafos.
+
+É uma **árvore de dependências jurídicas**.
+
+---
+
+# 27. A arquitetura que eu adotaria
+
+Eu dividiria seu sistema em **5 camadas**:
+
+```text
+CAMADA 1 — FATOS
+Quem?
+O quê?
+Quanto?
+Quando?
+Onde?
+Por quê?
+
+        ↓
+
+CAMADA 2 — DECISÕES
+Confidencialidade?
+IP?
+SLA?
+Garantia?
+Aceite?
+Multa?
+Rescisão?
+
+        ↓
+
+CAMADA 3 — MÓDULOS
+NDA
+IP
+SLA
+Pagamento
+Garantia
+Indenização
+etc.
+
+        ↓
+
+CAMADA 4 — CLÁUSULAS
+Variantes jurídicas das cláusulas
+
+        ↓
+
+CAMADA 5 — DOCUMENTO
+Contrato final
+Anexos
+Assinaturas
+Numeração
+Referências cruzadas
+```
+
+E isso é muito mais robusto do que criar dezenas de templates isolados. A própria orientação profissional sobre uso de IA em drafting destaca que templates pré-aprovados e consistentes são úteis, mas exigem revisão humana e verificação jurídica apropriada. ([Associação Americana de Advogados][6])
+
+### O próximo mapa que eu faria
+
+Antes de escrever qualquer código do gerador, eu criaria uma **matriz completa de campos**, neste formato:
+
+| Módulo    | Campo           | Tipo     | Obrigatório | Condição               | Aparece no contrato | Afeta outros módulos |
+| --------- | --------------- | -------- | ----------- | ---------------------- | ------------------- | -------------------- |
+| Partes    | tipo da parte   | select   | sim         | sempre                 | sim                 | vários               |
+| Partes    | CPF/CNPJ        | string   | sim         | conforme tipo          | sim                 | identificação        |
+| NDA       | tipo            | select   | não         | confidencialidade=true | sim                 | término              |
+| NDA       | prazo           | duration | sim         | NDA ativo              | sim                 | término              |
+| Pagamento | modelo          | select   | sim         | contrato remunerado    | sim                 | rescisão             |
+| Aceite    | aceite tácito   | boolean  | não         | existem entregáveis    | sim                 | pagamento            |
+| IP        | titularidade    | select   | não         | existe criação         | sim                 | término              |
+| SLA       | disponibilidade | number   | não         | SLA ativo              | sim                 | penalidade           |
+
+**Essa matriz é, na minha visão, o documento mais importante do projeto inteiro.** Depois dela, fazer a UI e o gerador de cláusulas fica muito mais racional.
+
+E tem um ponto especialmente importante: como você está mirando algo realmente generalista, eu **não tentaria mapear “todos os contratos possíveis” primeiro**. Eu mapearia **todas as capacidades contratuais possíveis**; os tipos de contrato passam a ser apenas combinações dessas capacidades. Isso evita que o sistema fique preso a templates.
+
+[1]: https://uk.practicallaw.thomsonreuters.com/Document/I323e4d112ccd11e698dc8b09b4f043e0/View/FullText.html?contextData=%28sc.Default%29&docSource=05d25c0af7cb4e938398d52f0b511a1f&needToInjectTerms=False&originationContext=docHeader&ppcid=47c0e333513544658ac0c00efe9dc15e&transitionType=Document&utm_source=chatgpt.com "Drafting or Reviewing a Commercial Contract Checklist | Practical Law"
+[2]: https://www.mehoklaw.com/blog/2026-1-5/contract-drafting-checklist-guide?utm_source=chatgpt.com "Contract Drafting Checklist: Guide for Attorneys & Businesses | Mehok Law — Mehok Law, PC"
+[3]: https://www.americanbar.org/groups/young_lawyers/resources/tyl/practice-areas/how-to-draft-employment-contract-independent-contractor-agreement/?utm_source=chatgpt.com "How to Draft an Employment Contract Versus an Independent Contractor Agreement"
+[4]: https://ca.practicallaw.thomsonreuters.com/w-002-5593?contextData=%28sc.Default%29&transitionType=Default&utm_source=chatgpt.com "Drafting or Reviewing a Commercial Contract Checklist | Practical Law"
+[5]: https://www.spotdraft.com/blog/contract-drafting-checklist?utm_source=chatgpt.com "Contract Drafting Checklist: Free Template"
+[6]: https://www.americanbar.org/content/aba-cms-dotorg/en/groups/law_practice/resources/law-technology-today/2025/using-generative-ai-in-contact-drafting/?utm_source=chatgpt.com "The Best Way to Use Generative AI in Contract Drafting"

@@ -1,5 +1,6 @@
 import PizZip from 'pizzip';
 import Docxtemplater from 'docxtemplater';
+import { compilarContextoDocx } from './engine/compiler';
 
 export interface Env {
   BUCKET_CONTRATOS: R2Bucket;
@@ -113,27 +114,9 @@ export default {
 
         const sufixoAssinaturasSanitizado = sufixoAssinaturas ? sanitizarPath(sufixoAssinaturas) : '';
 
-        // --- Extração de Variáveis (Tags <...>) ---
-        let variaveis: Record<string, any> = {};
-        if (body.variaveis && typeof body.variaveis === 'object') {
-          variaveis = { ...body.variaveis };
-        } else {
-          const chavesReservadas = [
-            'documento_url', 'nome_contrato', 'api_key', 'projeto', 
-            'servico', 'versao', 'secoes_adicionais', 'substituicoes_texto',
-            'signatarios', 'assinaturas', 'sufixo_assinaturas'
-          ];
-          for (const key of Object.keys(body)) {
-            if (!chavesReservadas.includes(key)) {
-              variaveis[key] = body[key];
-            }
-          }
-        }
-
-        // Seções adicionais injetadas
-        if (Array.isArray(body.secoes_adicionais)) {
-          variaveis['secoes_adicionais'] = body.secoes_adicionais;
-        }
+        // --- Compilação Dinâmica de Módulos (Engine) ---
+        // Aqui o JSON complexo de fatos e módulos vira variáveis prontas pro Docxtemplater
+        const contextoRenderizacao = compilarContextoDocx(body);
 
         // 3. Download do arquivo DOCX base
         const docxResponse = await fetch(documentoUrl);
@@ -150,14 +133,14 @@ export default {
         // 4. Processa o DOCX com PizZip e Docxtemplater
         const zip = new PizZip(contentArrayBuffer);
         
-        // Nível 1: Substituição de tags <nome-do-campo>
+        // Nível 1: Substituição de tags de Variáveis e Blocos Condicionais de Módulos
         const doc = new Docxtemplater(zip, {
           delimiters: { start: '<', end: '>' },
           paragraphLoop: true,
           linebreaks: true,
         });
 
-        doc.render(variaveis);
+        doc.render(contextoRenderizacao);
 
         // Nível 2: Substituições de Texto Brutais / Linha / Frases Específicas
         if (Array.isArray(body.substituicoes_texto) && body.substituicoes_texto.length > 0) {
@@ -251,7 +234,7 @@ export default {
             nome_arquivo_final: nomeArquivoFinal,
             file_key: fileKey,
             download_url: publicDownloadUrl,
-            variaveis_substituidas: Object.keys(variaveis).length,
+            variaveis_substituidas: Object.keys(contextoRenderizacao).length,
             substituicoes_texto_aplicadas: Array.isArray(body.substituicoes_texto) ? body.substituicoes_texto.length : 0,
             secoes_adicionadas: Array.isArray(body.secoes_adicionais) ? body.secoes_adicionais.length : 0,
             criado_em: new Date().toISOString(),
